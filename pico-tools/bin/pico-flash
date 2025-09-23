@@ -1,0 +1,265 @@
+#!/bin/bash
+# Smart flash script for Raspberry Pi Pico
+# Attempts software reset to BOOTSEL, falls back to manual mode
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Configuration
+BUILD_DIR="${BUILD_DIR:-build}"
+MOUNT_TIMEOUT=10
+SERIAL_DEVICE=""
+USE_PYTHON_RESET=false
+
+# Print usage
+usage() {
+    echo "Usage: pico-flash-smart [options] [uf2_file]"
+    echo "Options:"
+    echo "  -d DEVICE    Serial device (e.g., /dev/tty.usbmodem1101)"
+    echo "  -p           Use Python serial reset method"
+    echo "  -m           Manual mode only (skip auto-reset attempts)"
+    echo "  -h           Show this help"
+    exit 0
+}
+
+# Parse arguments
+MANUAL_ONLY=false
+while getopts "d:pmh" opt; do
+    case $opt in
+        d) SERIAL_DEVICE="$OPTARG" ;;
+        p) USE_PYTHON_RESET=true ;;
+        m) MANUAL_ONLY=true ;;
+        h) usage ;;
+        *) usage ;;
+    esac
+done
+shift $((OPTIND-1))
+
+# Find UF2 file
+if [ -n "$1" ]; then
+    UF2_FILE="$1"
+else
+    # Auto-detect UF2 file in build directory
+    UF2_FILE=$(find "$BUILD_DIR" -name "*.uf2" 2>/dev/null | head -n1)
+fi
+
+if [ -z "$UF2_FILE" ] || [ ! -f "$UF2_FILE" ]; then
+    echo -e "${RED}Error: No UF2 file found${NC}"
+    echo "Please specify a UF2 file or build your project first"
+    exit 1
+fi
+
+echo -e "${BLUE}🚀 Smart Flash for Raspberry Pi Pico${NC}"
+echo -e "UF2 file: ${GREEN}$(basename "$UF2_FILE")${NC}"
+
+# Function to detect Pico mount point
+detect_pico_mount() {
+    if [ -d "/Volumes/RP2350" ]; then
+        echo "/Volumes/RP2350"
+    elif [ -d "/Volumes/RPI-RP2" ]; then
+        echo "/Volumes/RPI-RP2"
+    else
+        # Check for any mounted volume that looks like Pico
+        find /Volumes -maxdepth 1 -name "RP*" 2>/dev/null | head -n1
+    fi
+}
+
+# Function to wait for Pico to mount
+wait_for_pico() {
+    local timeout=$1
+    echo -e "${YELLOW}⏳ Waiting for Pico to mount...${NC}"
+    
+    for i in $(seq 1 $timeout); do
+        MOUNT_POINT=$(detect_pico_mount)
+        if [ -n "$MOUNT_POINT" ]; then
+            echo -e "${GREEN}✓ Pico mounted at: $MOUNT_POINT${NC}"
+            return 0
+        fi
+        sleep 1
+        printf "."
+    done
+    
+    echo
+    return 1
+}
+
+# Function to trigger reset via serial (1200 baud method)
+reset_via_serial() {
+    local device=$1
+    
+    if [ -z "$device" ]; then
+        # Auto-detect serial device
+        device=$(ls /dev/tty.usbmodem* 2>/dev/null | head -n1)
+        if [ -z "$device" ]; then
+            device=$(ls /dev/cu.usbmodem* 2>/dev/null | head -n1)
+        fi
+    fi
+    
+    if [ -z "$device" ] || [ ! -e "$device" ]; then
+        return 1
+    fi
+    
+    echo -e "${BLUE}🔄 Attempting software reset via $device${NC}"
+    
+    if [ "$USE_PYTHON_RESET" = true ] && command -v python3 &> /dev/null; then
+        # Python method - more reliable for 1200 baud reset
+        python3 - <<EOF 2>/dev/null || return 1
+import serial
+import time
+try:
+    # Open at 1200 baud to trigger reset
+    ser = serial.Serial('$device', 1200)
+    ser.close()
+    time.sleep(0.5)
+    # Open at normal speed and send reset command
+    ser = serial.Serial('$device', 115200, timeout=0.1)
+    ser.write(b'\\x00')  # Send null byte
+    ser.close()
+    print("Reset signal sent")
+except:
+    exit(1)
+EOF
+    else
+        # Bash method using stty
+        if command -v stty &> /dev/null; then
+            # Set to 1200 baud briefly (Arduino-style reset)
+            stty -f "$device" 1200 2>/dev/null || return 1
+            sleep 0.5
+            # Reset to normal speed
+            stty -f "$device" 115200 2>/dev/null
+            echo -e "${GREEN}Reset signal sent${NC}"
+        else
+            return 1
+        fi
+    fi
+    
+    return 0
+}
+
+# Function to send custom reset command
+send_reset_command() {
+    local device=$1
+    
+    if [ -z "$device" ] || [ ! -e "$device" ]; then
+        return 1
+    fi
+    
+    echo -e "${BLUE}📡 Sending reset command to $device${NC}"
+    
+    # Send a special command that our firmware recognizes
+    # This assumes you've implemented a serial command handler
+    echo -n "RESET_TO_BOOTSEL" > "$device" 2>/dev/null || return 1
+    
+    return 0
+}
+
+# Main flashing logic
+flash_pico() {
+    local mount_point=$1
+    
+    echo -e "${BLUE}📦 Copying $(basename "$UF2_FILE") to Pico...${NC}"
+    
+    # Kill QuickLook service (macOS Sequoia fix)
+    killall -KILL QuickLookUIService 2>/dev/null || true
+    
+    # Sync before copy to clear any pending writes
+    sync
+    
+    # Copy file (remove verbose flag to reduce output)
+    if command -v pv &> /dev/null; then
+        pv "$UF2_FILE" > "$mount_point/$(basename "$UF2_FILE")"
+    else
+        cp "$UF2_FILE" "$mount_point/"
+    fi
+    
+    # Force sync to disk and brief pause
+    sync
+    sleep 0.2
+    
+    # Gentle unmount attempt before Pico self-ejects
+    echo -e "${BLUE}🔄 Syncing and unmounting...${NC}"
+    diskutil quiet unmount "$mount_point" 2>/dev/null || true
+    
+    # Wait for Pico to reboot
+    echo -e "${YELLOW}⏳ Waiting for Pico to reboot...${NC}"
+    local count=0
+    while [ -d "$mount_point" ] && [ $count -lt 10 ]; do
+        sleep 0.5
+        count=$((count + 1))
+    done
+    
+    if [ ! -d "$mount_point" ]; then
+        echo -e "${GREEN}✅ Flash successful! Pico has rebooted.${NC}"
+        return 0
+    else
+        echo -e "${GREEN}✅ Flash completed${NC}"
+        echo -e "${BLUE}💡 Note: Drive may still appear mounted briefly${NC}"
+        return 0
+    fi
+}
+
+# Main execution
+main() {
+    # Check if already in BOOTSEL mode
+    MOUNT_POINT=$(detect_pico_mount)
+    if [ -n "$MOUNT_POINT" ]; then
+        echo -e "${GREEN}✓ Pico already in BOOTSEL mode${NC}"
+        flash_pico "$MOUNT_POINT"
+        exit 0
+    fi
+    
+    # Try software reset methods
+    if [ "$MANUAL_ONLY" = false ]; then
+        # Method 1: Serial reset (1200 baud trick)
+        if [ -n "$SERIAL_DEVICE" ]; then
+            reset_via_serial "$SERIAL_DEVICE" && wait_for_pico 5
+        else
+            # Try auto-detected device
+            reset_via_serial "" && wait_for_pico 5
+        fi
+        
+        MOUNT_POINT=$(detect_pico_mount)
+        if [ -n "$MOUNT_POINT" ]; then
+            flash_pico "$MOUNT_POINT"
+            exit 0
+        fi
+        
+        # Method 2: Custom reset command
+        if [ -n "$SERIAL_DEVICE" ]; then
+            send_reset_command "$SERIAL_DEVICE" && wait_for_pico 5
+            
+            MOUNT_POINT=$(detect_pico_mount)
+            if [ -n "$MOUNT_POINT" ]; then
+                flash_pico "$MOUNT_POINT"
+                exit 0
+            fi
+        fi
+    fi
+    
+    # Fall back to manual mode
+    echo -e "${YELLOW}⚠️  Software reset failed or not available${NC}"
+    echo -e "${BLUE}📌 Please enter BOOTSEL mode manually:${NC}"
+    echo "  1. Hold down the BOOTSEL button"
+    echo "  2. Press and release RESET (or reconnect USB)"
+    echo "  3. Release BOOTSEL button"
+    echo
+    
+    # Wait for manual BOOTSEL
+    if wait_for_pico $MOUNT_TIMEOUT; then
+        MOUNT_POINT=$(detect_pico_mount)
+        flash_pico "$MOUNT_POINT"
+    else
+        echo -e "${RED}❌ Timeout: Pico not detected in BOOTSEL mode${NC}"
+        echo "Please check your connection and try again"
+        exit 1
+    fi
+}
+
+# Run main function
+main

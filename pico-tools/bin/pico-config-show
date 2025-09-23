@@ -1,0 +1,241 @@
+#!/bin/bash
+
+# Pico Configuration Display
+# Usage: pico-config-show [--verbose]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLS_DIR="$(dirname "$SCRIPT_DIR")"
+SOFTWAREC_DIR="$(dirname "$TOOLS_DIR")"
+
+# Parse arguments
+VERBOSE=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --verbose)
+            VERBOSE=true
+            shift
+            ;;
+        *)
+            echo "Error: Unknown argument '$1'"
+            echo "Usage: pico-config-show [--verbose]"
+            exit 1
+            ;;
+    esac
+done
+
+# Source environment
+if [ -f "$SOFTWAREC_DIR/.env" ]; then
+    source "$SOFTWAREC_DIR/.env"
+else
+    echo "Error: .env file not found in $SOFTWAREC_DIR"
+    exit 1
+fi
+
+echo "🔧 Raspberry Pi Pico Development Configuration"
+echo "=============================================="
+
+# Environment Status
+echo ""
+echo "📍 Environment:"
+echo "  Workspace: $SOFTWAREC_DIR"
+echo "  Tools: $PICO_TOOLS_PATH"
+
+# SDK Information
+echo ""
+echo "🛠️  Pico SDK:"
+echo "  Path: $PICO_SDK_PATH"
+if [ -d "$PICO_SDK_PATH" ]; then
+    echo "  Status: ✅ Found"
+    if [ -d "$PICO_SDK_PATH/.git" ]; then
+        cd "$PICO_SDK_PATH"
+        SDK_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "Unknown")
+        SDK_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "No tag")
+        SDK_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "Unknown")
+        echo "  Version: $SDK_TAG (commit: $SDK_COMMIT)"
+        echo "  Branch: $SDK_BRANCH"
+        cd - >/dev/null
+    fi
+else
+    echo "  Status: ❌ Not found"
+fi
+
+# Target Configuration
+echo ""
+echo "🎯 Target Configuration:"
+echo "  Board: $PICO_BOARD"
+echo "  Platform: $PICO_PLATFORM"
+echo "  Build Type: $CMAKE_BUILD_TYPE"
+
+# Board Details
+echo ""
+echo "📋 Board Details:"
+case "$PICO_BOARD" in
+    "pico")
+        echo "  Name: Raspberry Pi Pico"
+        echo "  Chip: RP2040"
+        echo "  CPU: Dual-core ARM Cortex-M0+ @ 133MHz"
+        echo "  RAM: 264KB"
+        echo "  Flash: 2MB"
+        echo "  GPIO: 26 pins"
+        echo "  ADC: 3 channels"
+        ;;
+    "pico_w")
+        echo "  Name: Raspberry Pi Pico W"
+        echo "  Chip: RP2040 + CYW43439"
+        echo "  CPU: Dual-core ARM Cortex-M0+ @ 133MHz"
+        echo "  RAM: 264KB"
+        echo "  Flash: 2MB"
+        echo "  GPIO: 23 pins (3 used for WiFi)"
+        echo "  Wireless: WiFi 802.11n, Bluetooth 5.2"
+        ;;
+    "pico2")
+        echo "  Name: Raspberry Pi Pico 2"
+        echo "  Chip: RP2350"
+        echo "  CPU: Dual-core ARM Cortex-M33 @ 150MHz"
+        echo "  RAM: 520KB"
+        echo "  Flash: 4MB"
+        echo "  GPIO: 26 pins"
+        echo "  Features: Hardware security, floating-point unit"
+        ;;
+    "pico2_w")
+        echo "  Name: Raspberry Pi Pico 2 W"
+        echo "  Chip: RP2350 + CYW43439"
+        echo "  CPU: Dual-core ARM Cortex-M33 @ 150MHz"
+        echo "  RAM: 520KB"
+        echo "  Flash: 4MB"
+        echo "  GPIO: 23 pins (3 used for WiFi)"
+        echo "  Wireless: WiFi 802.11n, Bluetooth 5.2"
+        ;;
+    "pico2_riscv")
+        echo "  Name: Raspberry Pi Pico 2 (RISC-V)"
+        echo "  Chip: RP2350 (RISC-V mode)"
+        echo "  CPU: Dual-core RISC-V @ 150MHz"
+        echo "  RAM: 520KB"
+        echo "  Flash: 4MB"
+        echo "  GPIO: 26 pins"
+        ;;
+    *)
+        echo "  Name: $PICO_BOARD (custom/unknown)"
+        ;;
+esac
+
+# I/O Configuration
+echo ""
+echo "💻 I/O Configuration:"
+echo "  USB stdio: $([ "$PICO_STDIO_USB" = "1" ] && echo "✅ Enabled" || echo "❌ Disabled")"
+echo "  UART stdio: $([ "$PICO_STDIO_UART" = "1" ] && echo "✅ Enabled" || echo "❌ Disabled")"
+echo "  Copy to RAM: $([ "$PICO_COPY_TO_RAM" = "1" ] && echo "✅ Enabled" || echo "❌ Disabled")"
+
+# Build Tools
+echo ""
+echo "🔨 Build Tools:"
+echo "  CMake: $CMAKE_PATH"
+if command -v "$CMAKE_PATH" >/dev/null 2>&1; then
+    CMAKE_VERSION=$("$CMAKE_PATH" --version | head -1 | awk '{print $3}')
+    echo "    Version: $CMAKE_VERSION ✅"
+else
+    echo "    Status: ❌ Not found"
+fi
+
+echo "  Ninja: $NINJA_PATH"
+if command -v "$NINJA_PATH" >/dev/null 2>&1; then
+    NINJA_VERSION=$("$NINJA_PATH" --version)
+    echo "    Version: $NINJA_VERSION ✅"
+else
+    echo "    Status: ❌ Not found (will use Make)"
+fi
+
+echo "  Python3: $PYTHON3_PATH"
+if command -v "$PYTHON3_PATH" >/dev/null 2>&1; then
+    PYTHON_VERSION=$("$PYTHON3_PATH" --version | awk '{print $2}')
+    echo "    Version: $PYTHON_VERSION ✅"
+else
+    echo "    Status: ❌ Not found"
+fi
+
+echo "  Git: $GIT_PATH"
+if command -v "$GIT_PATH" >/dev/null 2>&1; then
+    GIT_VERSION=$("$GIT_PATH" --version | awk '{print $3}')
+    echo "    Version: $GIT_VERSION ✅"
+else
+    echo "    Status: ❌ Not found"
+fi
+
+# ARM Toolchain
+echo ""
+echo "⚙️  ARM Toolchain:"
+echo "  Prefix: $PICO_COMPILER_PREFIX"
+echo "  Path: $ARM_GCC_PATH"
+
+ARM_GCC="${ARM_GCC_PATH}/${PICO_COMPILER_PREFIX}gcc"
+if command -v "$ARM_GCC" >/dev/null 2>&1; then
+    GCC_VERSION=$("$ARM_GCC" --version | head -1 | awk '{print $3,$4,$5}')
+    echo "  GCC: $GCC_VERSION ✅"
+else
+    echo "  GCC: ❌ Not found"
+fi
+
+ARM_GDB="${ARM_GCC_PATH}/${PICO_COMPILER_PREFIX}gdb"
+if command -v "$ARM_GDB" >/dev/null 2>&1; then
+    echo "  GDB: ✅ Available"
+else
+    echo "  GDB: ❌ Not found"
+fi
+
+# Project Status (if in a project directory)
+echo ""
+echo "📁 Current Project:"
+if [ -f "CMakeLists.txt" ] && [ -f "pico_sdk_import.cmake" ]; then
+    PROJECT_NAME=$(grep -o 'project([^)]*)' CMakeLists.txt | head -1 | sed 's/project(\([^)]*\))/\1/' || echo "Unknown")
+    echo "  Name: $PROJECT_NAME"
+    echo "  Status: ✅ Valid Pico project"
+    
+    if [ -d "build" ]; then
+        BUILD_FILES=$(find build -name "*.uf2" 2>/dev/null | wc -l)
+        echo "  Build: ✅ Directory exists ($BUILD_FILES UF2 files)"
+    else
+        echo "  Build: ❌ No build directory"
+    fi
+else
+    echo "  Status: ❌ Not in a Pico project directory"
+fi
+
+# Verbose information
+if [ "$VERBOSE" = true ]; then
+    echo ""
+    echo "🔍 Detailed Information:"
+    echo "  Environment file: $SOFTWAREC_DIR/.env"
+    echo "  Configuration file: $SOFTWAREC_DIR/CLAUDE.md"
+    
+    echo ""
+    echo "📦 Available Templates:"
+    if [ -d "$TOOLS_DIR/templates" ]; then
+        ls -1 "$TOOLS_DIR/templates" 2>/dev/null || echo "  None found"
+    else
+        echo "  Template directory not found"
+    fi
+    
+    echo ""
+    echo "🛠️  Available Tools:"
+    ls -1 "$TOOLS_DIR/bin" 2>/dev/null | sed 's/^/  /' || echo "  None found"
+fi
+
+echo ""
+echo "=============================================="
+
+# Quick health check
+ISSUES=0
+
+[ ! -d "$PICO_SDK_PATH" ] && echo "⚠️  SDK not found" && ((ISSUES++))
+[ ! -x "$CMAKE_PATH" ] && echo "⚠️  CMake not found" && ((ISSUES++))
+[ ! -x "${ARM_GCC_PATH}/${PICO_COMPILER_PREFIX}gcc" ] && echo "⚠️  ARM GCC not found" && ((ISSUES++))
+
+if [ $ISSUES -eq 0 ]; then
+    echo "✅ Configuration looks good!"
+else
+    echo "⚠️  Found $ISSUES configuration issue(s)"
+fi
+
+echo ""

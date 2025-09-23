@@ -1,0 +1,64 @@
+# SoftwareC Infrastructure Repository
+# This repo contains shared tools, libraries, SDK, and templates
+# Project repositories (ValidateC, BartlebyC, CandideC) are separate and ignored
+
+# Project Directories (separate repositories)
+ValidateC/
+BartlebyC/
+CandideC/
+
+# Build artifacts
+build/
+*.uf2
+*.elf
+*.hex
+*.bin
+*.map
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Python cache (for any Python tools)
+__pycache__/
+*.pyc
+*.pyo
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Environment-specific files (keep .env as it defines the standard)
+# .env  # <- Keep this file as it's part of the infrastructure
+
+# Pico SDK (separate git repository, not a submodule)
+pico-sdk/
+
+# Any local development folders
+local/
+scratch/
+temp/

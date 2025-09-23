@@ -1,0 +1,108 @@
+#!/bin/bash
+
+# Pico Project Cleaner
+# Usage: pico-clean [--all] [--cache]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLS_DIR="$(dirname "$SCRIPT_DIR")"
+SOFTWAREC_DIR="$(dirname "$TOOLS_DIR")"
+
+# Parse arguments
+CLEAN_ALL=false
+CLEAN_CACHE=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --all)
+            CLEAN_ALL=true
+            shift
+            ;;
+        --cache)
+            CLEAN_CACHE=true
+            shift
+            ;;
+        *)
+            echo "Error: Unknown argument '$1'"
+            echo "Usage: pico-clean [--all] [--cache]"
+            echo "  --all    Clean all build artifacts and CMake cache"
+            echo "  --cache  Clean only CMake cache files"
+            exit 1
+            ;;
+    esac
+done
+
+# Check if we're in a project directory
+if [ ! -f "CMakeLists.txt" ]; then
+    echo "Error: No CMakeLists.txt found. Run this command from a Pico project directory."
+    exit 1
+fi
+
+echo "🧹 Cleaning Pico project..."
+
+if [ "$CLEAN_CACHE" = true ] || [ "$CLEAN_ALL" = true ]; then
+    echo "🗑️  Removing CMake cache..."
+    if [ -d "build" ]; then
+        find build -name "CMakeCache.txt" -delete 2>/dev/null || true
+        find build -name "cmake_install.cmake" -delete 2>/dev/null || true
+        find build -name "Makefile" -delete 2>/dev/null || true
+        find build -name "*.ninja*" -delete 2>/dev/null || true
+        find build -type d -name "CMakeFiles" -exec rm -rf {} + 2>/dev/null || true
+        echo "   CMake cache cleared"
+    fi
+fi
+
+if [ "$CLEAN_ALL" = true ]; then
+    echo "🗑️  Removing all build artifacts..."
+    if [ -d "build" ]; then
+        rm -rf build/
+        echo "   Build directory removed"
+    fi
+else
+    # Standard clean - remove build outputs but keep CMake configuration
+    if [ -d "build" ]; then
+        echo "🗑️  Removing build outputs..."
+        
+        # Remove compiled objects
+        find build -name "*.o" -delete 2>/dev/null || true
+        find build -name "*.obj" -delete 2>/dev/null || true
+        find build -name "*.a" -delete 2>/dev/null || true
+        find build -name "*.lib" -delete 2>/dev/null || true
+        
+        # Remove final outputs
+        find build -name "*.elf" -delete 2>/dev/null || true
+        find build -name "*.uf2" -delete 2>/dev/null || true
+        find build -name "*.hex" -delete 2>/dev/null || true
+        find build -name "*.bin" -delete 2>/dev/null || true
+        find build -name "*.map" -delete 2>/dev/null || true
+        find build -name "*.dis" -delete 2>/dev/null || true
+        
+        echo "   Build outputs removed"
+    fi
+fi
+
+# Clean common temporary files
+echo "🗑️  Removing temporary files..."
+find . -name "*~" -delete 2>/dev/null || true
+find . -name "*.bak" -delete 2>/dev/null || true
+find . -name ".DS_Store" -delete 2>/dev/null || true
+find . -name "*.tmp" -delete 2>/dev/null || true
+
+# Show remaining build directory structure if it exists
+if [ -d "build" ] && [ "$CLEAN_ALL" = false ]; then
+    echo ""
+    echo "📁 Remaining build structure:"
+    du -sh build 2>/dev/null || echo "   Build directory: (empty or minimal)"
+fi
+
+echo ""
+echo "✅ Project cleaned successfully!"
+
+if [ "$CLEAN_ALL" = true ]; then
+    echo "💡 Next build will reconfigure from scratch"
+else
+    echo "💡 CMake configuration preserved - next build will be faster"
+fi
+
+echo ""

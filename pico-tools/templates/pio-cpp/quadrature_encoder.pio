@@ -1,0 +1,36 @@
+;
+; Quadrature Encoder Reader
+; Reads quadrature encoder signals and tracks position
+;
+
+.program quadrature_encoder
+
+; Sample both pins and compute the new state
+    wait 1 pin 1        ; Wait for CLK to go high
+    in pins, 2          ; Sample both CLK and DATA
+    push noblock        ; Push to FIFO, don't block if full
+
+% c-sdk {
+
+static inline void quadrature_encoder_program_init(PIO pio, uint sm, uint offset, uint pin_clk, uint pin_data) {
+    pio_sm_config c = quadrature_encoder_program_get_default_config(offset);
+    
+    // Set up pins
+    sm_config_set_in_pins(&c, pin_clk); // CLK is the base pin
+    pio_gpio_init(pio, pin_clk);
+    pio_gpio_init(pio, pin_data);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_clk, 2, false); // Both pins as inputs
+    
+    // Configure shift register
+    sm_config_set_in_shift(&c, false, true, 2); // Shift left, autopush after 2 bits
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX); // Use RX FIFO
+    
+    // Set clock divider for appropriate sampling rate
+    sm_config_set_clkdiv(&c, 1.0f); // Run at full speed
+    
+    // Initialize and start the state machine
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+%}

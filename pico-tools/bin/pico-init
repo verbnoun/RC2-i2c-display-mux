@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# Pico Project Initializer
+# Usage: pico-init <project-name> [template]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLS_DIR="$(dirname "$SCRIPT_DIR")"
+SOFTWAREC_DIR="$(dirname "$TOOLS_DIR")"
+
+# Source environment
+if [ -f "$SOFTWAREC_DIR/.env" ]; then
+    source "$SOFTWAREC_DIR/.env"
+else
+    echo "Error: .env file not found in $SOFTWAREC_DIR"
+    exit 1
+fi
+
+# Check arguments
+if [ $# -lt 1 ]; then
+    echo "Usage: pico-init <project-name> [template]"
+    echo ""
+    echo "Available templates:"
+    echo "  basic-cpp      - Simple C++ project"
+    echo "  advanced-cpp   - C++ with peripherals (I2C, SPI, PWM)"
+    echo "  multicore-cpp  - Dual-core C++ template"
+    echo "  pio-cpp        - PIO (Programmable I/O) template"
+    exit 1
+fi
+
+PROJECT_NAME="$1"
+TEMPLATE="${2:-basic-cpp}"
+TEMPLATE_DIR="$TOOLS_DIR/templates/$TEMPLATE"
+
+# Validate template
+if [ ! -d "$TEMPLATE_DIR" ]; then
+    echo "Error: Template '$TEMPLATE' not found in $TEMPLATE_DIR"
+    echo "Available templates:"
+    ls "$TOOLS_DIR/templates/" 2>/dev/null || echo "  No templates found"
+    exit 1
+fi
+
+# Validate project name
+if [[ ! "$PROJECT_NAME" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]]; then
+    echo "Error: Project name must start with a letter and contain only letters, numbers, underscores, and hyphens"
+    exit 1
+fi
+
+# Check if project already exists
+if [ -d "$PROJECT_NAME" ]; then
+    echo "Error: Directory '$PROJECT_NAME' already exists"
+    exit 1
+fi
+
+echo "Creating Pico project: $PROJECT_NAME"
+echo "Template: $TEMPLATE"
+echo "Board: $PICO_BOARD"
+echo "Platform: $PICO_PLATFORM"
+
+# Copy template
+cp -r "$TEMPLATE_DIR" "$PROJECT_NAME"
+
+# Replace placeholders in files
+find "$PROJECT_NAME" -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "CMakeLists.txt" -o -name "*.md" \) -exec sed -i.bak "s/PROJECT_NAME/$PROJECT_NAME/g" {} \;
+find "$PROJECT_NAME" -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "CMakeLists.txt" -o -name "*.md" \) -exec sed -i.bak "s/PICO_BOARD_PLACEHOLDER/$PICO_BOARD/g" {} \;
+
+# Remove backup files
+find "$PROJECT_NAME" -name "*.bak" -delete
+
+# Copy pico_sdk_import.cmake
+cp "$PICO_SDK_PATH/external/pico_sdk_import.cmake" "$PROJECT_NAME/"
+
+# Create build directory
+mkdir -p "$PROJECT_NAME/build"
+
+# Create .vscode directory for VS Code integration
+mkdir -p "$PROJECT_NAME/.vscode"
+
+# Create VS Code settings
+cat > "$PROJECT_NAME/.vscode/settings.json" << 'EOF'
+{
+    "cmake.configureOnOpen": false,
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+}
+EOF
+
+echo ""
+echo "✅ Project '$PROJECT_NAME' created successfully!"
+echo ""
+echo "Next steps:"
+echo "1. cd $PROJECT_NAME"
+echo "2. pico-build    # Build the project"
+echo "3. pico-flash    # Flash to connected Pico"
+echo ""
+echo "Project structure:"
+tree "$PROJECT_NAME" 2>/dev/null || find "$PROJECT_NAME" -type f
+echo ""

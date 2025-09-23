@@ -1,0 +1,151 @@
+#!/bin/bash
+
+# Pico SDK Updater
+# Usage: pico-sdk-update [--force] [--version tag]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLS_DIR="$(dirname "$SCRIPT_DIR")"
+SOFTWAREC_DIR="$(dirname "$TOOLS_DIR")"
+
+# Source environment
+if [ -f "$SOFTWAREC_DIR/.env" ]; then
+    source "$SOFTWAREC_DIR/.env"
+else
+    echo "Error: .env file not found in $SOFTWAREC_DIR"
+    exit 1
+fi
+
+# Parse arguments
+FORCE=false
+VERSION=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --force)
+            FORCE=true
+            shift
+            ;;
+        --version)
+            VERSION="$2"
+            shift 2
+            ;;
+        *)
+            echo "Error: Unknown argument '$1'"
+            echo "Usage: pico-sdk-update [--force] [--version tag]"
+            echo "  --force     Force update even if already up to date"
+            echo "  --version   Update to specific version/tag"
+            exit 1
+            ;;
+    esac
+done
+
+SDK_PATH="$PICO_SDK_PATH"
+
+# Validate SDK path
+if [ ! -d "$SDK_PATH" ]; then
+    echo "Error: Pico SDK not found at $SDK_PATH"
+    echo "Run 'git clone --recursive https://github.com/raspberrypi/pico-sdk.git' first"
+    exit 1
+fi
+
+if [ ! -d "$SDK_PATH/.git" ]; then
+    echo "Error: $SDK_PATH is not a git repository"
+    echo "Please ensure the SDK was cloned with git"
+    exit 1
+fi
+
+echo "🔄 Updating Pico SDK..."
+echo "Location: $SDK_PATH"
+
+cd "$SDK_PATH"
+
+# Fetch latest changes
+echo "📥 Fetching latest changes..."
+git fetch origin
+
+# Get current and latest info
+CURRENT_COMMIT=$(git rev-parse HEAD)
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+CURRENT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "No tag")
+
+echo "📍 Current state:"
+echo "  Branch: $CURRENT_BRANCH"
+echo "  Commit: ${CURRENT_COMMIT:0:8}"
+echo "  Tag: $CURRENT_TAG"
+
+if [ -n "$VERSION" ]; then
+    # Update to specific version
+    echo "🎯 Updating to version: $VERSION"
+    
+    if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+        echo "❌ Version '$VERSION' not found"
+        echo "Available tags:"
+        git tag -l | tail -10
+        exit 1
+    fi
+    
+    git checkout "$VERSION"
+    UPDATED=true
+else
+    # Update to latest
+    if [ "$CURRENT_BRANCH" = "master" ] || [ "$CURRENT_BRANCH" = "main" ]; then
+        LATEST_COMMIT=$(git rev-parse origin/$CURRENT_BRANCH)
+        
+        if [ "$CURRENT_COMMIT" = "$LATEST_COMMIT" ] && [ "$FORCE" = false ]; then
+            echo "✅ SDK is already up to date"
+            UPDATED=false
+        else
+            echo "⬆️  Updating to latest..."
+            git pull origin "$CURRENT_BRANCH"
+            UPDATED=true
+        fi
+    else
+        echo "⚠️  On branch '$CURRENT_BRANCH', not updating automatically"
+        echo "Use --force to update anyway, or checkout master/main first"
+        if [ "$FORCE" = false ]; then
+            exit 1
+        fi
+        git pull origin "$CURRENT_BRANCH"
+        UPDATED=true
+    fi
+fi
+
+if [ "$UPDATED" = true ]; then
+    # Update submodules
+    echo "📦 Updating submodules..."
+    git submodule update --init --recursive
+    
+    # Show new state
+    NEW_COMMIT=$(git rev-parse HEAD)
+    NEW_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "No tag")
+    
+    echo ""
+    echo "✅ SDK updated successfully!"
+    echo "📍 New state:"
+    echo "  Commit: ${NEW_COMMIT:0:8}"
+    echo "  Tag: $NEW_TAG"
+    
+    # Show changes if available
+    if [ "$CURRENT_COMMIT" != "$NEW_COMMIT" ]; then
+        echo ""
+        echo "📝 Recent changes:"
+        git log --oneline "$CURRENT_COMMIT..HEAD" | head -5
+        
+        CHANGE_COUNT=$(git rev-list --count "$CURRENT_COMMIT..HEAD")
+        if [ "$CHANGE_COUNT" -gt 5 ]; then
+            echo "   ... and $((CHANGE_COUNT - 5)) more commits"
+        fi
+    fi
+else
+    echo "📍 No changes made"
+fi
+
+# Check for any project build cache that might need clearing
+echo ""
+echo "💡 Recommendation:"
+echo "   Clean project build caches after SDK updates:"
+echo "   cd <your-project> && pico-clean --all"
+
+echo ""

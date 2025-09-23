@@ -1,0 +1,189 @@
+#!/bin/bash
+
+# Pico Board Configuration
+# Usage: pico-board-set <board> [--platform platform]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLS_DIR="$(dirname "$SCRIPT_DIR")"
+SOFTWAREC_DIR="$(dirname "$TOOLS_DIR")"
+
+# Source environment
+if [ -f "$SOFTWAREC_DIR/.env" ]; then
+    source "$SOFTWAREC_DIR/.env"
+else
+    echo "Error: .env file not found in $SOFTWAREC_DIR"
+    exit 1
+fi
+
+# Supported boards and their default platforms
+declare -A BOARD_PLATFORMS=(
+    ["pico"]="rp2040"
+    ["pico_w"]="rp2040"
+    ["pico2"]="rp2350-arm-s"
+    ["pico2_w"]="rp2350-arm-s"
+    ["pico2_riscv"]="rp2350-riscv"
+)
+
+# Parse arguments
+BOARD=""
+PLATFORM=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --platform)
+            PLATFORM="$2"
+            shift 2
+            ;;
+        *)
+            if [ -z "$BOARD" ]; then
+                BOARD="$1"
+            else
+                echo "Error: Unknown argument '$1'"
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Show help if no board specified
+if [ -z "$BOARD" ]; then
+    echo "Usage: pico-board-set <board> [--platform platform]"
+    echo ""
+    echo "Supported boards:"
+    for board in "${!BOARD_PLATFORMS[@]}"; do
+        platform="${BOARD_PLATFORMS[$board]}"
+        echo "  $board (default platform: $platform)"
+    done | sort
+    echo ""
+    echo "Supported platforms:"
+    echo "  rp2040        - Original Pico, Pico W"
+    echo "  rp2350-arm-s  - Pico 2 (ARM Cortex-M33, secure)"
+    echo "  rp2350-riscv  - Pico 2 (RISC-V)"
+    echo ""
+    echo "Current configuration:"
+    echo "  Board: $PICO_BOARD"
+    echo "  Platform: $PICO_PLATFORM"
+    exit 1
+fi
+
+# Validate board
+if [[ ! " ${!BOARD_PLATFORMS[@]} " =~ " $BOARD " ]]; then
+    echo "Error: Unsupported board '$BOARD'"
+    echo "Supported boards: ${!BOARD_PLATFORMS[@]}"
+    exit 1
+fi
+
+# Set default platform if not specified
+if [ -z "$PLATFORM" ]; then
+    PLATFORM="${BOARD_PLATFORMS[$BOARD]}"
+fi
+
+# Validate platform
+VALID_PLATFORMS=("rp2040" "rp2350-arm-s" "rp2350-riscv")
+if [[ ! " ${VALID_PLATFORMS[@]} " =~ " $PLATFORM " ]]; then
+    echo "Error: Unsupported platform '$PLATFORM'"
+    echo "Supported platforms: ${VALID_PLATFORMS[@]}"
+    exit 1
+fi
+
+# Validate board/platform combination
+case "$BOARD" in
+    "pico"|"pico_w")
+        if [ "$PLATFORM" != "rp2040" ]; then
+            echo "Error: Board '$BOARD' only supports platform 'rp2040'"
+            exit 1
+        fi
+        ;;
+    "pico2"|"pico2_w")
+        if [[ ! "$PLATFORM" =~ ^rp2350 ]]; then
+            echo "Error: Board '$BOARD' only supports rp2350 platforms"
+            exit 1
+        fi
+        ;;
+    "pico2_riscv")
+        if [ "$PLATFORM" != "rp2350-riscv" ]; then
+            echo "Error: Board '$BOARD' requires platform 'rp2350-riscv'"
+            exit 1
+        fi
+        ;;
+esac
+
+echo "🔧 Configuring Pico development environment..."
+echo "Board: $BOARD"
+echo "Platform: $PLATFORM"
+
+# Update .env file
+ENV_FILE="$SOFTWAREC_DIR/.env"
+TEMP_FILE=$(mktemp)
+
+# Read current .env and update the relevant lines
+while IFS= read -r line; do
+    if [[ $line =~ ^export\ PICO_BOARD= ]]; then
+        echo "export PICO_BOARD=\"$BOARD\""
+    elif [[ $line =~ ^export\ PICO_PLATFORM= ]]; then
+        echo "export PICO_PLATFORM=\"$PLATFORM\""
+    else
+        echo "$line"
+    fi
+done < "$ENV_FILE" > "$TEMP_FILE"
+
+# Replace original file
+mv "$TEMP_FILE" "$ENV_FILE"
+
+echo "✅ Configuration updated in .env"
+
+# Check if we're in a project directory and suggest rebuild
+if [ -f "CMakeLists.txt" ] && [ -d "build" ]; then
+    echo ""
+    echo "⚠️  Project detected with existing build"
+    echo "💡 Recommended: Clean and rebuild for new target"
+    echo "   pico-clean --all && pico-build"
+fi
+
+# Show board-specific information
+echo ""
+echo "📋 Board Information:"
+case "$BOARD" in
+    "pico")
+        echo "  • Raspberry Pi Pico (RP2040)"
+        echo "  • Dual-core ARM Cortex-M0+ @ 133MHz"
+        echo "  • 264KB RAM, 2MB Flash"
+        echo "  • 26 × GPIO pins, 3 × ADC"
+        ;;
+    "pico_w")
+        echo "  • Raspberry Pi Pico W (RP2040 + CYW43439)"
+        echo "  • Dual-core ARM Cortex-M0+ @ 133MHz"
+        echo "  • 264KB RAM, 2MB Flash"
+        echo "  • WiFi 802.11n, Bluetooth 5.2"
+        echo "  • 23 × GPIO pins, 3 × ADC"
+        ;;
+    "pico2")
+        echo "  • Raspberry Pi Pico 2 (RP2350)"
+        echo "  • Dual-core ARM Cortex-M33 @ 150MHz"
+        echo "  • 520KB RAM, 4MB Flash"
+        echo "  • 26 × GPIO pins, 3 × ADC"
+        echo "  • Hardware security features"
+        ;;
+    "pico2_w")
+        echo "  • Raspberry Pi Pico 2 W (RP2350 + CYW43439)"
+        echo "  • Dual-core ARM Cortex-M33 @ 150MHz"
+        echo "  • 520KB RAM, 4MB Flash"
+        echo "  • WiFi 802.11n, Bluetooth 5.2"
+        echo "  • 23 × GPIO pins, 3 × ADC"
+        ;;
+    "pico2_riscv")
+        echo "  • Raspberry Pi Pico 2 (RP2350 RISC-V mode)"
+        echo "  • Dual-core RISC-V @ 150MHz"
+        echo "  • 520KB RAM, 4MB Flash"
+        echo "  • 26 × GPIO pins, 3 × ADC"
+        ;;
+esac
+
+echo ""
+echo "🔄 Environment updated! Restart terminal or run:"
+echo "   source .env"
+
+echo ""
