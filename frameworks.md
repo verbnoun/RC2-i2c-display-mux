@@ -1,4 +1,5 @@
 ## Application Frameworks
+*Status: Framework design complete. Implementation in progress - pot_scanner and console_logger libraries operational.*
 
 ### Controller Framework
 **Purpose**: Hardware input device that sends commands/data to other devices
@@ -11,10 +12,10 @@ Controller Framework
 │   └── shutdown() - Cleanup
 │
 ├── Input Pipeline
-│   ├── [LIBRARY: keyboard_2d] - 25-key with pressure (Z) and pitch bend (X)
-│   ├── [LIBRARY: pot_scanner] - Potentiometer array via mux
-│   ├── [LIBRARY: encoder] - Rotary encoder with button
-│   └── process_inputs() - Transform raw → MIDI 2.0 messages
+│   ├── [LIBRARY: pot_scanner] ✅ - 16-channel potentiometer array via CD74HC4067
+│   ├── [LIBRARY: keyboard_2d] 🔄 - 25-key with pressure (Z) and pitch bend (X) [planned]
+│   ├── [LIBRARY: encoder] 🔄 - Rotary encoder with button [planned]
+│   └── process_inputs() - Transform raw → MIDI 2.0 messages [planned]
 │
 ├── Output Pipeline  
 │   ├── [LIBRARY: usb_device] - Built-in USB device
@@ -24,11 +25,12 @@ Controller Framework
 │   └── send_messages() - Route MIDI 2.0 to appropriate port
 │
 └── System Services
-    ├── [LIBRARY: state_persist] - Save/load settings
-    ├── [LIBRARY: boot_manager] - Startup sequence
-    ├── [LIBRARY: oled_ssd1306_mux] - Multi-OLED display
-    ├── [LIBRARY: animation_engine] - Display animations
-    └── [LIBRARY: performance_monitor] - CPU/memory tracking
+    ├── [LIBRARY: console_logger] ✅ - Tag-based logging with unique colors
+    ├── [LIBRARY: state_persist] 🔄 - Save/load settings [planned]
+    ├── [LIBRARY: boot_manager] 🔄 - Startup sequence [planned]
+    ├── [LIBRARY: oled_ssd1306_mux] 🔄 - Multi-OLED display [next]
+    ├── [LIBRARY: animation_engine] 🔄 - Display animations [planned]
+    └── [LIBRARY: performance_monitor] 🔄 - CPU/memory tracking [planned]
 ```
 
 ### Synthesizer Framework
@@ -71,10 +73,11 @@ Synthesizer Framework
 ## Library Categories
 
 ### Hardware I/O Libraries
-- **keyboard_2d** - 25-key velostat with continuous pressure (Z) and pitch bend (X)
-- **mux_adc** - CD74HC4067 multiplexer control
-- **encoder** - Rotary encoder with button
-- **pot_scanner** - Potentiometer array reading
+- **pot_scanner** ✅ - CD74HC4067 + potentiometer array with EMA filtering, music production sensitivity
+- **console_logger** ✅ - Tag-based logging with unique colors, system info utilities
+- **activity_led** ✅ - LED activity patterns (deprecated in favor of inline logic)
+- **keyboard_2d** 🔄 - 25-key velostat with continuous pressure (Z) and pitch bend (X) [planned]
+- **encoder** 🔄 - Rotary encoder with button [planned]
 
 ### USB Libraries (Role-specific)
 - **usb_device** - Built-in USB device mode (both Controller & Synth)
@@ -109,24 +112,45 @@ Synthesizer Framework
 
 ## Library Development Workflow
 
-### Structure
+### Structure (Current Implementation)
 ```
-/libraries/              # Shared library repository
-├── keyboard_2d/        # Each library is a git submodule
-├── midi2_ump/         
-├── animation_engine/   
-└── ...
+SoftwareC/              # Infrastructure repository
+├── libraries/          # Organization folder (each is separate git repo)
+│   ├── console_logger/ # Individual git repository
+│   ├── pot_scanner/    # Individual git repository  
+│   └── activity_led/   # Individual git repository
+├── pico-tools/bin/git-status-check  # Multi-repo monitoring
+└── .env               # LIBRARIES_PATH environment variable
 
-/ValidateC/             # Projects reference shared libraries
-├── CMakeLists.txt     # add_subdirectory(../libraries/keyboard_2d)
-└── pot_reader/
+ValidateC/             # Project repositories use environment variables
+├── CMakeLists.txt     # add_subdirectory($ENV{LIBRARIES_PATH}/console_logger console_logger)
+└── controller_test/
 
-/BartlebyC/            # Updates to libraries are available on rebuild
-└── CMakeLists.txt     # add_subdirectory(../libraries/keyboard_2d)
+BartlebyC/            # Same environment variable architecture
+└── CMakeLists.txt     # add_subdirectory($ENV{LIBRARIES_PATH}/pot_scanner pot_scanner)
+```
+
+### Multi-Repository Workflow
+```bash
+# Check all repositories for uncommitted changes
+source .env && git-status-check
+
+# Work on specific library
+cd libraries/console_logger
+git commit -m "feat: add new tag color"
+
+# Work on infrastructure  
+git commit -m "feat: add new build tool"
+
+# Work on application
+cd ValidateC
+git commit -m "feat: add new controller feature"
 ```
 
 ### Benefits
-- Update a library once, all projects get the update on next compile
-- Version control per library with git submodules
-- Mix and match libraries between Controller and Synthesizer projects
-- Clear separation of concerns
+- **Individual Library Versioning**: Each library has independent commit history and releases
+- **Modular Development**: Libraries evolve independently without affecting infrastructure
+- **Environment Variable Architecture**: Eliminates relative path hell (`../../` patterns)
+- **Multi-Repo Monitoring**: Single `git-status-check` command shows all repository statuses
+- **Mix and Match**: Libraries work across Controller and Synthesizer projects
+- **Clear Separation**: Infrastructure, libraries, and applications have distinct responsibilities
