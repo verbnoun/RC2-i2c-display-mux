@@ -203,18 +203,18 @@ pico-sdk-update
 ### SoftwareC Infrastructure Repository (THIS REPO)
 ```
 SoftwareC/              # Main infrastructure repository
-├── .gitignore          # Ignores project directories
+├── .gitignore          # Ignores project directories AND library repos
 ├── .env                # Environment variables (THE foundation)
 ├── CLAUDE.md           # This documentation
 ├── frameworks.md       # Framework architecture
 ├── current.md          # Current development status
-├── libraries/          # Shared library ecosystem
-│   ├── console_logger/ # Standardized logging
-│   ├── pot_scanner/    # CD74HC4067 + pot management
-│   └── README.md       # Library development guide
+├── libraries/          # Shared library ecosystem (separate git repos)
+│   ├── console_logger/ # Individual git repo - standardized logging
+│   ├── pot_scanner/    # Individual git repo - CD74HC4067 + pot management
+│   └── activity_led/   # Individual git repo - LED management
 ├── pico-sdk/           # Official Raspberry Pi Pico SDK
 └── pico-tools/         # Custom development tools
-    ├── bin/            # Build/flash tools
+    ├── bin/            # Build/flash tools + git-status-check
     ├── templates/      # Project templates (env-var based)
     └── docs/           # Tool documentation
 ```
@@ -226,7 +226,27 @@ BartlebyC/              # Controller application
 CandideC/               # Synthesizer application
 ```
 
-**Key Point**: Projects reference SoftwareC via environment variables. NO relative paths anywhere!
+### Library Development Workflow
+Each library in `libraries/` is a separate git repository:
+- **Individual Commits**: Each library has independent version history
+- **Modular Development**: Libraries can be updated without affecting infrastructure
+- **Environment Variables**: Projects still reference via `$LIBRARIES_PATH`
+- **Git Status Monitoring**: Use `git-status-check` to see all repo statuses
+
+### Multi-Repository Management
+```bash
+# Check all repositories for uncommitted changes
+git-status-check
+
+# Commit to specific library
+cd libraries/console_logger
+git add . && git commit -m "fix: improve tag colors"
+
+# Commit to infrastructure
+git add . && git commit -m "feat: add new build tool"
+```
+
+**Key Point**: Projects reference SoftwareC via environment variables. Each library is independently versioned. NO relative paths anywhere!
 
 This environment provides professional-grade Pico 2 development capabilities entirely through terminal commands.
 

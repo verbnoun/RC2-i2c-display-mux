@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# Check all git repositories in SoftwareC for uncommitted changes
+# Usage: git-status-check [path]
+
+TARGET_PATH="${1:-$PWD}"
+FOUND_CHANGES=false
+
+echo "🔍 Checking for git repositories with uncommitted changes in: $TARGET_PATH"
+echo "=================================================================="
+
+# Function to check a single repo
+check_repo() {
+    local repo_path="$1"
+    local repo_name=$(basename "$repo_path")
+    
+    cd "$repo_path" || return
+    
+    # Check if there are any changes
+    if ! git diff-index --quiet HEAD 2>/dev/null || [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+        echo
+        echo "📝 $repo_name has uncommitted changes:"
+        echo "   Path: $repo_path"
+        
+        # Show brief status
+        local status_output=$(git status --porcelain 2>/dev/null)
+        if [ -n "$status_output" ]; then
+            echo "   Files:"
+            echo "$status_output" | sed 's/^/     /'
+        fi
+        
+        # Show if there are staged vs unstaged changes
+        local staged=$(git diff-index --cached --name-only HEAD 2>/dev/null | wc -l)
+        local unstaged=$(git diff-index --name-only HEAD 2>/dev/null | wc -l)
+        local untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l)
+        
+        echo "   Status: $staged staged, $unstaged modified, $untracked untracked"
+        
+        FOUND_CHANGES=true
+    fi
+}
+
+# Find all git repositories and check them
+while IFS= read -r -d '' git_dir; do
+    repo_path=$(dirname "$git_dir")
+    
+    # Skip if it's a subdirectory of another git repo (like build/_deps)
+    parent_dir=$(dirname "$repo_path")
+    if [ "$parent_dir" != "$TARGET_PATH" ] && [ -d "$parent_dir/.git" ]; then
+        continue
+    fi
+    
+    check_repo "$repo_path"
+done < <(find "$TARGET_PATH" -name ".git" -type d -print0 2>/dev/null)
+
+echo
+if [ "$FOUND_CHANGES" = true ]; then
+    echo "⚠️  Found repositories with uncommitted changes above"
+    exit 1
+else
+    echo "✅ All git repositories are clean"
+    exit 0
+fi

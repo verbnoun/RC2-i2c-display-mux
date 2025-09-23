@@ -7,6 +7,9 @@ ValidateC/
 BartlebyC/
 CandideC/
 
+# Library Directories (separate git repositories)
+libraries/*/
+
 # Build artifacts
 build/
 *.uf2

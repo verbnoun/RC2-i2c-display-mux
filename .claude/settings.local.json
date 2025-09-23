@@ -15,7 +15,8 @@
       "Bash(./_deps/picotool/picotool load pot_reader.uf2 -f)",
       "Bash(pico-flash:*)",
       "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" pot_reader.uf2)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
