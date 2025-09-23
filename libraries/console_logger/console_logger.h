@@ -50,6 +50,7 @@ typedef enum {
 #define TAG_ANIM       "ANIM"
 #define TAG_BOOT       "BOOT"
 #define TAG_SYSTEM     "SYS"
+#define TAG_NORM       "NORM"
 
 // Maximum tag length and message length
 #define MAX_TAG_LENGTH 8
@@ -102,19 +103,33 @@ public:
      * Print system info (memory, uptime, etc.)
      */
     static void systemInfo();
+    
+    /**
+     * Tag enable/disable functions
+     */
+    static void enableTag(const char* tag);
+    static void disableTag(const char* tag);
+    static void toggleTag(const char* tag);
+    static bool isTagEnabled(const char* tag);
+    static void showEnabledTags();
 
 private:
     static log_level_t current_level_;
     static bool colors_enabled_;
     static bool timestamps_enabled_;
+    static uint32_t enabled_tags_;
     
     static const char* getLevelString(log_level_t level);
     static const char* getLevelColor(log_level_t level);
     static void formatTimestamp(char* buffer, size_t buffer_size);
     static void vlog(log_level_t level, const char* tag, const char* format, va_list args);
+    static uint8_t tagToBit(const char* tag);
 };
 
-// Convenience macros for common usage
+// Tag-based logging macros (ignores log level, uses tag enable/disable)
+#define LOG(tag, ...) ConsoleLogger::log(LOG_LEVEL_INFO, tag, __VA_ARGS__)
+
+// Legacy convenience macros (still useful for always-on logging)
 #define LOG_DEBUG(tag, ...) ConsoleLogger::debug(tag, __VA_ARGS__)
 #define LOG_INFO(tag, ...)  ConsoleLogger::info(tag, __VA_ARGS__)
 #define LOG_WARN(tag, ...)  ConsoleLogger::warn(tag, __VA_ARGS__)

@@ -2,16 +2,25 @@
 #include "pico/time.h"
 #include "pico/unique_id.h"
 #include "hardware/watchdog.h"
+#include <string.h>
 
 // Static member definitions
 log_level_t ConsoleLogger::current_level_ = LOG_LEVEL_INFO;
 bool ConsoleLogger::colors_enabled_ = true;
 bool ConsoleLogger::timestamps_enabled_ = false;
+uint32_t ConsoleLogger::enabled_tags_ = 0;
 
 void ConsoleLogger::init(log_level_t level, bool enable_colors, bool enable_timestamps) {
     current_level_ = level;
     colors_enabled_ = enable_colors;
     timestamps_enabled_ = enable_timestamps;
+    
+    // Enable default tags (CTRL, NORM, SYSTEM, BOOT)
+    enabled_tags_ = 0;
+    enableTag(TAG_CONTROLLER);
+    enableTag(TAG_NORM);
+    enableTag(TAG_SYSTEM);
+    enableTag(TAG_BOOT);
     
     // Ensure stdio is initialized
     stdio_init_all();
@@ -176,6 +185,11 @@ void ConsoleLogger::formatTimestamp(char* buffer, size_t buffer_size) {
 }
 
 void ConsoleLogger::vlog(log_level_t level, const char* tag, const char* format, va_list args) {
+    // Check if tag is enabled (skip this check for WARN and ERROR levels)
+    if (level < LOG_LEVEL_WARN && !isTagEnabled(tag)) {
+        return;
+    }
+    
     char timestamp_buffer[16];
     char message_buffer[MAX_MESSAGE_LENGTH];
     char tag_buffer[MAX_TAG_LENGTH + 1];
@@ -189,24 +203,102 @@ void ConsoleLogger::vlog(log_level_t level, const char* tag, const char* format,
     // Format the message
     vsnprintf(message_buffer, sizeof(message_buffer), format, args);
     
-    // Output the complete log line
+    // Get unique color for each tag
+    const char* tag_color = COLOR_WHITE;
+    if (strcmp(tag, TAG_POT) == 0) tag_color = COLOR_CYAN;
+    else if (strcmp(tag, TAG_MUX) == 0) tag_color = COLOR_MAGENTA;
+    else if (strcmp(tag, TAG_NORM) == 0) tag_color = COLOR_GREEN;
+    else if (strcmp(tag, TAG_HW) == 0) tag_color = COLOR_YELLOW;
+    else if (strcmp(tag, TAG_CONTROLLER) == 0) tag_color = COLOR_BLUE;
+    else if (strcmp(tag, TAG_SYSTEM) == 0) tag_color = COLOR_BRIGHT_YELLOW;
+    else if (strcmp(tag, TAG_BOOT) == 0) tag_color = COLOR_BRIGHT_CYAN;
+    
+    // Output the complete log line - simplified format without log level
     if (colors_enabled_) {
-        printf("%s%s[%s%s%s] %s%s%s\n",
+        printf("%s%s[%s]%s %s\n",
                timestamp_buffer,
-               getLevelColor(level),
-               getLevelString(level),
-               COLOR_RESET,
-               COLOR_BRIGHT_WHITE,
-               tag_buffer,
+               tag_color,
+               tag,
                COLOR_RESET,
                message_buffer);
     } else {
-        printf("%s[%s] %s %s\n",
+        printf("%s[%s] %s\n",
                timestamp_buffer,
-               getLevelString(level),
-               tag_buffer,
+               tag,
                message_buffer);
     }
     
     fflush(stdout);
+}
+
+uint8_t ConsoleLogger::tagToBit(const char* tag) {
+    // Map common tags to bit positions (0-31)
+    if (strcmp(tag, TAG_CONTROLLER) == 0) return 0;
+    if (strcmp(tag, TAG_SYNTH) == 0) return 1;
+    if (strcmp(tag, TAG_HW) == 0) return 2;
+    if (strcmp(tag, TAG_MIDI) == 0) return 3;
+    if (strcmp(tag, TAG_AUDIO) == 0) return 4;
+    if (strcmp(tag, TAG_OLED) == 0) return 5;
+    if (strcmp(tag, TAG_POT) == 0) return 6;
+    if (strcmp(tag, TAG_MUX) == 0) return 7;
+    if (strcmp(tag, TAG_I2C) == 0) return 8;
+    if (strcmp(tag, TAG_USB) == 0) return 9;
+    if (strcmp(tag, TAG_ANIM) == 0) return 10;
+    if (strcmp(tag, TAG_BOOT) == 0) return 11;
+    if (strcmp(tag, TAG_SYSTEM) == 0) return 12;
+    if (strcmp(tag, TAG_NORM) == 0) return 13;
+    return 255; // Invalid tag
+}
+
+void ConsoleLogger::enableTag(const char* tag) {
+    uint8_t bit = tagToBit(tag);
+    if (bit < 32) {
+        enabled_tags_ |= (1U << bit);
+    }
+}
+
+void ConsoleLogger::disableTag(const char* tag) {
+    uint8_t bit = tagToBit(tag);
+    if (bit < 32) {
+        enabled_tags_ &= ~(1U << bit);
+    }
+}
+
+void ConsoleLogger::toggleTag(const char* tag) {
+    uint8_t bit = tagToBit(tag);
+    if (bit < 32) {
+        enabled_tags_ ^= (1U << bit);
+    }
+}
+
+bool ConsoleLogger::isTagEnabled(const char* tag) {
+    uint8_t bit = tagToBit(tag);
+    if (bit < 32) {
+        return (enabled_tags_ & (1U << bit)) != 0;
+    }
+    return false; // Unknown tags are disabled by default
+}
+
+void ConsoleLogger::showEnabledTags() {
+    printf("[%sSYS%s] Enabled tags: ", COLOR_BRIGHT_YELLOW, COLOR_RESET);
+    
+    bool first = true;
+    const char* tags[] = {
+        TAG_CONTROLLER, TAG_SYNTH, TAG_HW, TAG_MIDI, TAG_AUDIO,
+        TAG_OLED, TAG_POT, TAG_MUX, TAG_I2C, TAG_USB,
+        TAG_ANIM, TAG_BOOT, TAG_SYSTEM, TAG_NORM
+    };
+    
+    for (int i = 0; i < 14; i++) {
+        if (isTagEnabled(tags[i])) {
+            if (!first) printf(", ");
+            printf("%s", tags[i]);
+            first = false;
+        }
+    }
+    
+    if (first) {
+        printf("(none)");
+    }
+    printf("\n");
 }
