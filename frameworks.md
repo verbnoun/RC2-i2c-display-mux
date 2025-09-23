@@ -1,5 +1,5 @@
 ## Application Frameworks
-*Status: Framework design complete. Implementation in progress - pot_scanner and console_logger libraries operational.*
+*Status: Major milestone achieved - I/O manager abstraction complete with working pot scanning through proper modular architecture.*
 
 ### Controller Framework
 **Purpose**: Hardware input device that sends commands/data to other devices
@@ -12,7 +12,8 @@ Controller Framework
 │   └── shutdown() - Cleanup
 │
 ├── Input Pipeline
-│   ├── [LIBRARY: pot_scanner] ✅ - 16-channel potentiometer array via CD74HC4067
+│   ├── [LIBRARY: io_manager] ✅ - Universal I/O abstraction (CD74HC4067 + TCA9548A)
+│   ├── [LIBRARY: pot_scanner] ✅ - 16-channel potentiometer scanning via I/O manager
 │   ├── [LIBRARY: keyboard_2d] 🔄 - 25-key with pressure (Z) and pitch bend (X) [planned]
 │   ├── [LIBRARY: encoder] 🔄 - Rotary encoder with button [planned]
 │   └── process_inputs() - Transform raw → MIDI 2.0 messages [planned]
