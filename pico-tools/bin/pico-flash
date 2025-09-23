@@ -19,7 +19,7 @@ USE_PYTHON_RESET=false
 
 # Print usage
 usage() {
-    echo "Usage: pico-flash-smart [options] [uf2_file]"
+    echo "Usage: pico-flash [options] [uf2_file]"
     echo "Options:"
     echo "  -d DEVICE    Serial device (e.g., /dev/tty.usbmodem1101)"
     echo "  -p           Use Python serial reset method"

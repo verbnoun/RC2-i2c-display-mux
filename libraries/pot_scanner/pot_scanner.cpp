@@ -2,15 +2,25 @@
 #include <algorithm>
 #include <cmath>
 
+PotScanner::PotScanner() : current_channel_(0), scanning_active_(false), adc_channel_(0), 
+                           current_external_channel_(0), total_scans_(0), last_rate_check_time_(0), 
+                           scans_since_rate_check_(0) {
+    // Constructor - initialize member variables
+}
+
+PotScanner::~PotScanner() {
+    // Destructor - cleanup if needed
+}
+
 bool PotScanner::init(const pot_scanner_config_t& config) {
-    LOG_POT_INFO("Initializing pot scanner...");
+    LOG(TAG_POT, "Initializing pot scanner...");
     
     // Store configuration
     config_ = config;
     
     // Validate ADC pin
-    if (config_.sig_pin < 26 || config_.sig_pin > 29) {
-        LOG_POT_ERROR("Invalid ADC pin %d - must be GP26-GP29", config_.sig_pin);
+    if (config_.adc_pin < 26 || config_.adc_pin > 29) {
+        LOG(TAG_POT, "ERROR: Invalid ADC pin %d - must be GP26-GP29", config_.adc_pin);
         return false;
     }
     
@@ -18,28 +28,13 @@ bool PotScanner::init(const pot_scanner_config_t& config) {
     adc_init();
     
     // Configure ADC input pin
-    adc_gpio_init(config_.sig_pin);
-    uint8_t adc_channel = config_.sig_pin - 26;  // GP26=ADC0, GP27=ADC1, etc.
-    adc_select_input(adc_channel);
+    adc_gpio_init(config_.adc_pin);
+    adc_channel_ = config_.adc_pin - 26;  // GP26=ADC0, GP27=ADC1, etc.
+    adc_select_input(adc_channel_);
+    current_external_channel_ = 0;
     
-    LOG_MUX_INFO("ADC initialized on GP%d (ADC%d)", config_.sig_pin, adc_channel);
-    
-    // Initialize multiplexer address pins
-    gpio_init(config_.s0_pin);
-    gpio_init(config_.s1_pin);
-    gpio_init(config_.s2_pin);
-    gpio_init(config_.s3_pin);
-    
-    gpio_set_dir(config_.s0_pin, GPIO_OUT);
-    gpio_set_dir(config_.s1_pin, GPIO_OUT);
-    gpio_set_dir(config_.s2_pin, GPIO_OUT);
-    gpio_set_dir(config_.s3_pin, GPIO_OUT);
-    
-    // Initialize to channel 0
-    selectChannel(0);
-    
-    LOG_MUX_INFO("CD74HC4067 address pins: GP%d-GP%d (S0-S3)", 
-                 config_.s0_pin, config_.s3_pin);
+    LOG(TAG_POT, "ADC initialized on GP%d (ADC%d) - external channel control", 
+                 config_.adc_pin, adc_channel_);
     
     // Initialize all channel states
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
@@ -78,7 +73,7 @@ bool PotScanner::init(const pot_scanner_config_t& config) {
     last_rate_check_time_ = current_time;
     scans_since_rate_check_ = 0;
     
-    LOG_POT_INFO("Pot scanner initialized - %d channels, EMA alpha=%.2f, thresholds: move=%d quiet=%d", 
+    LOG(TAG_POT, "Pot scanner initialized - %d channels, EMA alpha=%.2f, thresholds: move=%d quiet=%d", 
                  POT_SCANNER_MAX_CHANNELS, config_.ema_alpha, 
                  config_.movement_threshold, config_.quiet_threshold);
     
@@ -89,14 +84,14 @@ void PotScanner::startScanning() {
     if (!scanning_active_) {
         scanning_active_ = true;
         current_channel_ = 0;
-        LOG_POT_INFO("Pot scanning started");
+        LOG(TAG_POT, "Pot scanning started");
     }
 }
 
 void PotScanner::stopScanning() {
     if (scanning_active_) {
         scanning_active_ = false;
-        LOG_POT_INFO("Pot scanning stopped");
+        LOG(TAG_POT, "Pot scanning stopped");
     }
 }
 
@@ -132,12 +127,9 @@ void PotScanner::update() {
 }
 
 void PotScanner::updatePot(uint8_t channel) {
-    // Select channel and allow settling
-    selectChannel(channel);
-    sleep_us(config_.settling_time_us);
-    
-    // Read raw value
-    uint16_t raw_value = readADC();
+    // External channel selection is handled by caller (main.cpp)
+    // Just read the current ADC value - channel should already be selected
+    uint16_t raw_value = readCurrentADC();
     pot_state_t& pot = channels_[channel];
     pot.raw_value = raw_value;
     
@@ -263,12 +255,12 @@ void PotScanner::updateQuiescence(uint8_t channel) {
 
 void PotScanner::setChannelEnabled(uint8_t channel, bool enabled) {
     if (!isValidChannel(channel)) {
-        LOG_POT_WARN("Invalid channel %d for enable/disable", channel);
+        LOG(TAG_POT, "WARN: Invalid channel %d for enable/disable", channel);
         return;
     }
     
     channels_[channel].is_active = enabled;
-    LOG_POT_DEBUG("Channel %d %s", channel, enabled ? "enabled" : "disabled");
+    LOG(TAG_POT, "Channel %d %s", channel, enabled ? "enabled" : "disabled");
 }
 
 uint8_t PotScanner::getValue(uint8_t channel) const {
@@ -296,11 +288,11 @@ bool PotScanner::hasValueChanged(uint8_t channel) {
 }
 
 void PotScanner::printStatus() const {
-    LOG_POT_INFO("=== Pot Scanner Status ===");
-    LOG_POT_INFO("Scanning: %s, Total scans: %lu, Rate: %.1f Hz", 
+    LOG(TAG_POT, "=== Pot Scanner Status ===");
+    LOG(TAG_POT, "Scanning: %s, Total scans: %lu, Rate: %.1f Hz", 
                  scanning_active_ ? "active" : "stopped", 
                  total_scans_, getCurrentScanRate());
-    LOG_POT_INFO("EMA alpha: %.2f, Movement: %d, Quiet: %d, Quiet time: %dms", 
+    LOG(TAG_POT, "EMA alpha: %.2f, Movement: %d, Quiet: %d, Quiet time: %dms", 
                  config_.ema_alpha, config_.movement_threshold, 
                  config_.quiet_threshold, config_.quiet_time_ms);
     
@@ -308,7 +300,7 @@ void PotScanner::printStatus() const {
     for (uint8_t i = 0; i < POT_SCANNER_MAX_CHANNELS; i++) {
         if (channels_[i].is_active) {
             const pot_state_t& pot = channels_[i];
-            LOG_POT_INFO("Ch%2d: raw=%4d, ema=%6.1f, mapped=%3d, %s", 
+            LOG(TAG_POT, "Ch%2d: raw=%4d, ema=%6.1f, mapped=%3d, %s", 
                          i, pot.raw_value, pot.ema_value, pot.mapped_value,
                          pot.is_quiet ? "quiet" : "ACTIVE");
         }
@@ -317,24 +309,24 @@ void PotScanner::printStatus() const {
 
 void PotScanner::printChannelDiagnostics(uint8_t channel) const {
     if (!isValidChannel(channel)) {
-        LOG_POT_ERROR("Invalid channel %d for diagnostics", channel);
+        LOG(TAG_POT, "ERROR: Invalid channel %d for diagnostics", channel);
         return;
     }
     
     const pot_state_t& pot = channels_[channel];
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
     
-    LOG_POT_INFO("=== Channel %d Diagnostics ===", channel);
-    LOG_POT_INFO("Active: %s", pot.is_active ? "yes" : "no");
-    LOG_POT_INFO("Raw: %d, EMA: %.1f, Current: %d, Mapped: %d", 
+    LOG(TAG_POT, "=== Channel %d Diagnostics ===", channel);
+    LOG(TAG_POT, "Active: %s", pot.is_active ? "yes" : "no");
+    LOG(TAG_POT, "Raw: %d, EMA: %.1f, Current: %d, Mapped: %d", 
                  pot.raw_value, pot.ema_value, pot.current_value, pot.mapped_value);
-    LOG_POT_INFO("Quiet: %s, Last movement: %lu ms ago", 
+    LOG(TAG_POT, "Quiet: %s, Last movement: %lu ms ago", 
                  pot.is_quiet ? "YES" : "NO",
                  current_time - pot.last_movement_time);
-    LOG_POT_INFO("Direction: %d, Consistency: %d, Stability: %d/%d", 
+    LOG(TAG_POT, "Direction: %d, Consistency: %d, Stability: %d/%d", 
                  pot.last_direction, pot.direction_consistency, 
                  pot.stability_count, config_.stability_required);
-    LOG_POT_INFO("Min: %d, Max: %d, Range: %d", 
+    LOG(TAG_POT, "Min: %d, Max: %d, Range: %d", 
                  pot.min_value, pot.max_value, pot.max_value - pot.min_value);
 }
 
@@ -379,7 +371,7 @@ uint8_t PotScanner::getActivePotCount() const {
 }
 
 void PotScanner::calibrate() {
-    LOG_POT_INFO("Calibrating potentiometers...");
+    LOG(TAG_POT, "Calibrating potentiometers...");
     
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
     
@@ -388,9 +380,9 @@ void PotScanner::calibrate() {
         for (uint8_t channel = 0; channel < POT_SCANNER_MAX_CHANNELS; channel++) {
             if (!channels_[channel].is_active) continue;
             
-            selectChannel(channel);
-            sleep_us(config_.settling_time_us);
-            uint16_t value = readADC();
+            // External channel selection must be handled by caller for calibration
+            // For now, just read current channel - caller should iterate through channels
+            uint16_t value = readCurrentADC();
             
             if (sample == 0) {
                 pot_state_t& pot = channels_[channel];
@@ -410,31 +402,18 @@ void PotScanner::calibrate() {
         sleep_ms(10);
     }
     
-    LOG_POT_INFO("Calibration complete - EMA filters reset");
+    LOG(TAG_POT, "Calibration complete - EMA filters reset");
 }
 
-void PotScanner::selectChannel(uint8_t channel) {
-    if (channel >= POT_SCANNER_MAX_CHANNELS) {
-        LOG_MUX_WARN("Invalid channel %d - clamping to %d", 
-                     channel, POT_SCANNER_MAX_CHANNELS - 1);
-        channel = POT_SCANNER_MAX_CHANNELS - 1;
-    }
-    
-    // Set 4-bit address on S0-S3 pins
-    gpio_put(config_.s0_pin, (channel & 0x01) ? 1 : 0);
-    gpio_put(config_.s1_pin, (channel & 0x02) ? 1 : 0);
-    gpio_put(config_.s2_pin, (channel & 0x04) ? 1 : 0);
-    gpio_put(config_.s3_pin, (channel & 0x08) ? 1 : 0);
-    
-    LOG(TAG_MUX, "Selected channel %d (S3-S0: %d%d%d%d)", 
-        channel,
-        (channel & 0x08) ? 1 : 0,
-        (channel & 0x04) ? 1 : 0,
-        (channel & 0x02) ? 1 : 0,
-        (channel & 0x01) ? 1 : 0);
+void PotScanner::selectExternalChannel(uint8_t channel) {
+    // Track which channel is currently selected externally
+    // This is for reference only - actual mux control is handled by caller
+    current_external_channel_ = channel;
 }
 
-uint16_t PotScanner::readADC() {
+uint16_t PotScanner::readCurrentADC() {
+    // Select the correct ADC channel and read
+    adc_select_input(adc_channel_);
     uint16_t adc_value = adc_read();
     
     // Clamp to valid range (shouldn't be necessary but good practice)
