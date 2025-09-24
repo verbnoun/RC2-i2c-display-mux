@@ -16,7 +16,10 @@
       "Bash(pico-flash:*)",
       "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" pot_reader.uf2)",
       "WebSearch",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-clean\")",
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-build\")",
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\")"
     ],
     "deny": [],
     "ask": []

@@ -5,7 +5,10 @@
 PotScanner::PotScanner() : current_channel_(0), scanning_active_(false), adc_channel_(0), 
                            current_external_channel_(0), total_scans_(0), last_rate_check_time_(0), 
                            scans_since_rate_check_(0) {
-    // Constructor - initialize member variables
+    // Initialize all channels as inactive with zero values
+    for (uint8_t i = 0; i < POT_SCANNER_MAX_CHANNELS; i++) {
+        channels_[i] = {0, 0.0f, false, 0, false};
+    }
 }
 
 PotScanner::~PotScanner() {
@@ -13,7 +16,7 @@ PotScanner::~PotScanner() {
 }
 
 bool PotScanner::init(const pot_scanner_config_t& config) {
-    LOG(TAG_POT, "Initializing pot scanner...");
+    LOG(TAG_POT, "Initializing hardware-focused pot scanner...");
     
     // Store configuration
     config_ = config;
@@ -36,34 +39,17 @@ bool PotScanner::init(const pot_scanner_config_t& config) {
     LOG(TAG_POT, "ADC initialized on GP%d (ADC%d) - external channel control", 
                  config_.adc_pin, adc_channel_);
     
-    // Initialize all channel states
+    // Initialize all channel readings
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
     for (uint8_t i = 0; i < POT_SCANNER_MAX_CHANNELS; i++) {
-        pot_state_t& pot = channels_[i];
+        pot_reading_t& reading = channels_[i];
         
-        // Reset all values
-        pot.raw_value = 0;
-        pot.current_value = 0;
-        pot.previous_value = 0;
-        pot.last_reported_value = 0;
-        pot.mapped_value = 0;
-        pot.ema_value = 0.0f;
-        
-        // Reset flags and timestamps
-        pot.has_changed = false;
-        pot.last_change_time = 0;
-        pot.last_report_time = 0;
-        pot.last_scan_time = 0;
-        pot.last_movement_time = current_time;
-        pot.is_quiet = true;
-        
-        // Reset tracking
-        pot.last_direction = 0;
-        pot.direction_consistency = 0;
-        pot.stability_count = 0;
-        pot.min_value = POT_SCANNER_ADC_RESOLUTION;
-        pot.max_value = 0;
-        pot.is_active = true;  // All channels active by default
+        // Initialize hardware readings
+        reading.raw_value = 0;
+        reading.filtered_value = 0.0f;
+        reading.is_valid = false;
+        reading.timestamp = current_time;
+        reading.is_active = true;  // All channels active by default
     }
     
     // Initialize scanner state
@@ -73,9 +59,8 @@ bool PotScanner::init(const pot_scanner_config_t& config) {
     last_rate_check_time_ = current_time;
     scans_since_rate_check_ = 0;
     
-    LOG(TAG_POT, "Pot scanner initialized - %d channels, EMA alpha=%.2f, thresholds: move=%d quiet=%d", 
-                 POT_SCANNER_MAX_CHANNELS, config_.ema_alpha, 
-                 config_.movement_threshold, config_.quiet_threshold);
+    LOG(TAG_POT, "Pot scanner initialized - %d channels, EMA alpha=%.2f, glitch threshold=%d", 
+                 POT_SCANNER_MAX_CHANNELS, config_.ema_alpha, config_.glitch_threshold);
     
     return true;
 }
@@ -103,7 +88,7 @@ void PotScanner::update() {
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
     
     // Check if it's time to scan the current channel
-    if (current_time - channels_[current_channel_].last_scan_time < config_.scan_interval_ms) {
+    if (current_time - channels_[current_channel_].timestamp < config_.scan_interval_ms) {
         return;
     }
     
@@ -115,142 +100,68 @@ void PotScanner::update() {
     }
     
     // Update the current channel
-    updatePot(current_channel_);
-    
-    // Update timing and metrics
-    channels_[current_channel_].last_scan_time = current_time;
-    total_scans_++;
-    scans_since_rate_check_++;
+    updateChannel(current_channel_);
     
     // Move to next channel
     current_channel_ = (current_channel_ + 1) % POT_SCANNER_MAX_CHANNELS;
 }
 
-void PotScanner::updatePot(uint8_t channel) {
-    // External channel selection is handled by caller (main.cpp)
-    // Just read the current ADC value - channel should already be selected
-    uint16_t raw_value = readCurrentADC();
-    pot_state_t& pot = channels_[channel];
-    pot.raw_value = raw_value;
-    
-    // Update EMA filter
-    updateEMA(channel, raw_value);
-    
-    // Use filtered value for logic
-    uint16_t filtered_value = (uint16_t)(pot.ema_value + 0.5f); // Round to nearest int
-    
-    // Update min/max tracking with filtered value
-    pot.min_value = std::min(pot.min_value, filtered_value);
-    pot.max_value = std::max(pot.max_value, filtered_value);
-    
-    // Update quiescence detection
-    updateQuiescence(channel);
-    
-    // If pot is quiet, don't report any changes
-    if (pot.is_quiet) {
-        pot.current_value = filtered_value;
-        pot.stability_count = 0;
+void PotScanner::updateChannel(uint8_t channel) {
+    if (!isValidChannel(channel) || !channels_[channel].is_active) {
         return;
     }
     
-    // Calculate change from last reported value
-    uint16_t diff_from_reported = (filtered_value > pot.last_reported_value) ? 
-                                   (filtered_value - pot.last_reported_value) : 
-                                   (pot.last_reported_value - filtered_value);
+    // External channel selection handled by caller (main.cpp)
+    // Read current ADC value - channel should already be selected
+    uint16_t raw_value = readCurrentADC();
+    pot_reading_t& reading = channels_[channel];
     
-    // Determine current direction
-    int8_t current_direction = 0;
-    uint16_t movement_threshold_3rd = config_.movement_threshold / 3;
-    if (filtered_value > pot.current_value + movement_threshold_3rd) {
-        current_direction = 1;
-        pot.direction_consistency = std::min((int)pot.direction_consistency + 1, 5);
-    } else if (filtered_value < pot.current_value - movement_threshold_3rd) {
-        current_direction = -1;
-        pot.direction_consistency = std::min((int)pot.direction_consistency + 1, 5);
+    // Check for glitches (single outlier rejection)
+    if (!isGlitch(channel, raw_value)) {
+        // Update hardware reading
+        reading.raw_value = raw_value;
+        
+        // Update EMA filter for electrical noise reduction
+        updateEMA(channel, raw_value);
+        
+        // Validate range
+        reading.is_valid = (raw_value <= POT_SCANNER_ADC_RESOLUTION);
+        reading.timestamp = to_ms_since_boot(get_absolute_time());
+        
+        total_scans_++;
+        scans_since_rate_check_++;
     } else {
-        pot.direction_consistency = 0;
+        // Glitch detected - keep previous reading
+        reading.is_valid = false;
+        LOG(TAG_POT, "Ch%d: Glitch rejected (raw=%d vs ema=%.1f)", 
+            channel, raw_value, reading.filtered_value);
     }
-    
-    // Check if we should report a change
-    uint32_t current_time = to_ms_since_boot(get_absolute_time());
-    bool time_ok = (current_time - pot.last_report_time) >= config_.min_report_interval_ms;
-    
-    if (diff_from_reported >= config_.movement_threshold && time_ok && pot.direction_consistency >= 1) {
-        pot.stability_count++;
-        
-        if (pot.stability_count >= config_.stability_required) {
-            // Report the change
-            pot.previous_value = pot.current_value;
-            pot.current_value = filtered_value;
-            pot.last_reported_value = filtered_value;
-            
-            // Map to MIDI range and check for actual change
-            uint8_t new_mapped = mapValue(filtered_value);
-            if (new_mapped != pot.mapped_value) {
-                pot.mapped_value = new_mapped;
-                pot.has_changed = true;
-                pot.last_change_time = current_time;
-                pot.last_report_time = current_time;
-                pot.last_movement_time = current_time;
-                
-                LOG(TAG_POT, "Ch%d: raw=%d, ema=%.1f, mapped=%d", 
-                    channel, raw_value, pot.ema_value, new_mapped);
-            }
-            pot.stability_count = 0;
-        }
-    } else {
-        // Only update current value if it's a significant change from current, not just reported
-        uint16_t diff_from_current = (filtered_value > pot.current_value) ?
-                                     (filtered_value - pot.current_value) :
-                                     (pot.current_value - filtered_value);
-        
-        if (diff_from_current >= config_.movement_threshold) {
-            pot.previous_value = pot.current_value;
-            pot.current_value = filtered_value;
-        }
-        
-        // Reset stability if no significant change
-        if (diff_from_reported < config_.movement_threshold) {
-            pot.stability_count = 0;
-        }
-    }
-    
-    // Update direction tracking
-    pot.last_direction = current_direction;
 }
 
 void PotScanner::updateEMA(uint8_t channel, uint16_t raw_value) {
-    pot_state_t& pot = channels_[channel];
+    pot_reading_t& reading = channels_[channel];
     
     // Initialize EMA on first reading
-    if (pot.ema_value == 0.0f) {
-        pot.ema_value = (float)raw_value;
-        pot.last_reported_value = raw_value;
-        pot.current_value = raw_value;
+    if (reading.filtered_value == 0.0f) {
+        reading.filtered_value = (float)raw_value;
     } else {
-        // Apply exponential moving average
-        pot.ema_value = (config_.ema_alpha * raw_value) + ((1.0f - config_.ema_alpha) * pot.ema_value);
+        // Apply exponential moving average for electrical noise reduction
+        reading.filtered_value = (config_.ema_alpha * raw_value) + 
+                                ((1.0f - config_.ema_alpha) * reading.filtered_value);
     }
 }
 
-void PotScanner::updateQuiescence(uint8_t channel) {
-    pot_state_t& pot = channels_[channel];
-    uint32_t current_time = to_ms_since_boot(get_absolute_time());
+bool PotScanner::isGlitch(uint8_t channel, uint16_t raw_value) const {
+    const pot_reading_t& reading = channels_[channel];
     
-    // Check if there's been significant movement recently
-    uint16_t filtered_value = (uint16_t)(pot.ema_value + 0.5f);
-    uint16_t diff_from_last = (filtered_value > pot.current_value) ?
-                             (filtered_value - pot.current_value) :
-                             (pot.current_value - filtered_value);
-    
-    if (diff_from_last >= config_.quiet_threshold) {
-        // Significant movement detected
-        pot.last_movement_time = current_time;
-        pot.is_quiet = false;
-    } else if (current_time - pot.last_movement_time >= config_.quiet_time_ms) {
-        // No significant movement for quiet_time_, consider quiet
-        pot.is_quiet = true;
+    // Skip glitch detection on first reading
+    if (reading.filtered_value == 0.0f) {
+        return false;
     }
+    
+    // Check if raw value differs too much from EMA (likely a glitch)
+    float diff = fabsf((float)raw_value - reading.filtered_value);
+    return diff > config_.glitch_threshold;
 }
 
 void PotScanner::setChannelEnabled(uint8_t channel, bool enabled) {
@@ -263,11 +174,11 @@ void PotScanner::setChannelEnabled(uint8_t channel, bool enabled) {
     LOG(TAG_POT, "Channel %d %s", channel, enabled ? "enabled" : "disabled");
 }
 
-uint8_t PotScanner::getValue(uint8_t channel) const {
+pot_reading_t PotScanner::getReading(uint8_t channel) const {
     if (!isValidChannel(channel)) {
-        return 0;
+        return {0, 0.0f, false, 0, false};
     }
-    return channels_[channel].mapped_value;
+    return channels_[channel];
 }
 
 uint16_t PotScanner::getRawValue(uint8_t channel) const {
@@ -277,32 +188,28 @@ uint16_t PotScanner::getRawValue(uint8_t channel) const {
     return channels_[channel].raw_value;
 }
 
-bool PotScanner::hasValueChanged(uint8_t channel) {
+float PotScanner::getFilteredValue(uint8_t channel) const {
     if (!isValidChannel(channel)) {
-        return false;
+        return 0.0f;
     }
-    
-    bool changed = channels_[channel].has_changed;
-    channels_[channel].has_changed = false;  // Clear flag after reading
-    return changed;
+    return channels_[channel].filtered_value;
 }
 
 void PotScanner::printStatus() const {
-    LOG(TAG_POT, "=== Pot Scanner Status ===");
+    LOG(TAG_POT, "=== Hardware Pot Scanner Status ===");
     LOG(TAG_POT, "Scanning: %s, Total scans: %lu, Rate: %.1f Hz", 
                  scanning_active_ ? "active" : "stopped", 
                  total_scans_, getCurrentScanRate());
-    LOG(TAG_POT, "EMA alpha: %.2f, Movement: %d, Quiet: %d, Quiet time: %dms", 
-                 config_.ema_alpha, config_.movement_threshold, 
-                 config_.quiet_threshold, config_.quiet_time_ms);
+    LOG(TAG_POT, "EMA alpha: %.2f, Glitch threshold: %d", 
+                 config_.ema_alpha, config_.glitch_threshold);
     
-    // Show active channels with current values
+    // Show active channels with current readings
     for (uint8_t i = 0; i < POT_SCANNER_MAX_CHANNELS; i++) {
         if (channels_[i].is_active) {
-            const pot_state_t& pot = channels_[i];
-            LOG(TAG_POT, "Ch%2d: raw=%4d, ema=%6.1f, mapped=%3d, %s", 
-                         i, pot.raw_value, pot.ema_value, pot.mapped_value,
-                         pot.is_quiet ? "quiet" : "ACTIVE");
+            const pot_reading_t& reading = channels_[i];
+            LOG(TAG_POT, "Ch%2d: raw=%4d, filtered=%6.1f, %s", 
+                         i, reading.raw_value, reading.filtered_value,
+                         reading.is_valid ? "valid" : "INVALID");
         }
     }
 }
@@ -313,21 +220,17 @@ void PotScanner::printChannelDiagnostics(uint8_t channel) const {
         return;
     }
     
-    const pot_state_t& pot = channels_[channel];
+    const pot_reading_t& reading = channels_[channel];
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
     
-    LOG(TAG_POT, "=== Channel %d Diagnostics ===", channel);
-    LOG(TAG_POT, "Active: %s", pot.is_active ? "yes" : "no");
-    LOG(TAG_POT, "Raw: %d, EMA: %.1f, Current: %d, Mapped: %d", 
-                 pot.raw_value, pot.ema_value, pot.current_value, pot.mapped_value);
-    LOG(TAG_POT, "Quiet: %s, Last movement: %lu ms ago", 
-                 pot.is_quiet ? "YES" : "NO",
-                 current_time - pot.last_movement_time);
-    LOG(TAG_POT, "Direction: %d, Consistency: %d, Stability: %d/%d", 
-                 pot.last_direction, pot.direction_consistency, 
-                 pot.stability_count, config_.stability_required);
-    LOG(TAG_POT, "Min: %d, Max: %d, Range: %d", 
-                 pot.min_value, pot.max_value, pot.max_value - pot.min_value);
+    LOG(TAG_POT, "=== Channel %d Hardware Diagnostics ===", channel);
+    LOG(TAG_POT, "Active: %s", reading.is_active ? "yes" : "no");
+    LOG(TAG_POT, "Raw: %d, Filtered: %.1f, Valid: %s", 
+                 reading.raw_value, reading.filtered_value, 
+                 reading.is_valid ? "YES" : "NO");
+    LOG(TAG_POT, "Last reading: %lu ms ago", 
+                 current_time - reading.timestamp);
+    LOG(TAG_POT, "Glitch threshold: %d ADC units", config_.glitch_threshold);
 }
 
 float PotScanner::getCurrentScanRate() const {
@@ -341,69 +244,16 @@ float PotScanner::getCurrentScanRate() const {
     return (scans_since_rate_check_ * 1000.0f) / time_elapsed;
 }
 
-void PotScanner::clearChangedFlags() {
-    for (uint8_t i = 0; i < POT_SCANNER_MAX_CHANNELS; i++) {
-        channels_[i].has_changed = false;
-    }
-}
-
-bool PotScanner::anyPotChanged() const {
-    for (uint8_t i = 0; i < POT_SCANNER_MAX_CHANNELS; i++) {
-        if (channels_[i].has_changed) {
-            return true;
-        }
-    }
-    return false;
-}
-
 uint8_t PotScanner::getActivePotCount() const {
     uint8_t count = 0;
-    uint32_t current_time = to_ms_since_boot(get_absolute_time());
-    
     for (uint8_t i = 0; i < POT_SCANNER_MAX_CHANNELS; i++) {
-        // Consider a pot "active" if it changed in the last 5 seconds
-        if (channels_[i].last_change_time > 0 && 
-            (current_time - channels_[i].last_change_time) < 5000) {
+        if (channels_[i].is_active) {
             count++;
         }
     }
     return count;
 }
 
-void PotScanner::calibrate() {
-    LOG(TAG_POT, "Calibrating potentiometers...");
-    
-    uint32_t current_time = to_ms_since_boot(get_absolute_time());
-    
-    // Take several readings to establish baseline
-    for (int sample = 0; sample < 10; sample++) {
-        for (uint8_t channel = 0; channel < POT_SCANNER_MAX_CHANNELS; channel++) {
-            if (!channels_[channel].is_active) continue;
-            
-            // External channel selection must be handled by caller for calibration
-            // For now, just read current channel - caller should iterate through channels
-            uint16_t value = readCurrentADC();
-            
-            if (sample == 0) {
-                pot_state_t& pot = channels_[channel];
-                pot.current_value = value;
-                pot.raw_value = value;
-                pot.previous_value = value;
-                pot.last_reported_value = value;
-                pot.ema_value = (float)value;
-                pot.last_movement_time = current_time;
-                pot.is_quiet = true;
-                pot.last_direction = 0;
-                pot.direction_consistency = 0;
-                pot.stability_count = 0;
-                pot.has_changed = false;
-            }
-        }
-        sleep_ms(10);
-    }
-    
-    LOG(TAG_POT, "Calibration complete - EMA filters reset");
-}
 
 void PotScanner::selectExternalChannel(uint8_t channel) {
     // Track which channel is currently selected externally
@@ -424,11 +274,3 @@ uint16_t PotScanner::readCurrentADC() {
     return adc_value;
 }
 
-uint8_t PotScanner::mapValue(uint16_t adc_value) const {
-    // Map from 0-4095 to 0-127 (MIDI range)
-    // Using 32-bit math to avoid overflow
-    uint32_t mapped = (adc_value * (POT_VALUE_MAX - POT_VALUE_MIN)) / 
-                      (POT_SCANNER_ADC_RESOLUTION - 1);
-    
-    return (uint8_t)(mapped + POT_VALUE_MIN);
-}

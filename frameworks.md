@@ -1,5 +1,5 @@
 ## Application Frameworks
-*Status: Major milestone achieved - I/O manager abstraction complete with working pot scanning through proper modular architecture.*
+*Status: Clean slate - Starting fresh with direct hardware control for OLED management.*
 
 ### Controller Framework
 **Purpose**: Hardware input device that sends commands/data to other devices
@@ -12,8 +12,7 @@ Controller Framework
 │   └── shutdown() - Cleanup
 │
 ├── Input Pipeline
-│   ├── [LIBRARY: io_manager] ✅ - Universal I/O abstraction (CD74HC4067 + TCA9548A)
-│   ├── [LIBRARY: pot_scanner] ✅ - 16-channel potentiometer scanning via I/O manager
+│   ├── [LIBRARY: pot_scanner] ✅ - 16-channel potentiometer scanning (basic ADC)
 │   ├── [LIBRARY: keyboard_2d] 🔄 - 25-key with pressure (Z) and pitch bend (X) [planned]
 │   ├── [LIBRARY: encoder] 🔄 - Rotary encoder with button [planned]
 │   └── process_inputs() - Transform raw → MIDI 2.0 messages [planned]
@@ -29,7 +28,7 @@ Controller Framework
     ├── [LIBRARY: console_logger] ✅ - Tag-based logging with unique colors
     ├── [LIBRARY: state_persist] 🔄 - Save/load settings [planned]
     ├── [LIBRARY: boot_manager] 🔄 - Startup sequence [planned]
-    ├── [LIBRARY: oled_ssd1306_mux] 🔄 - Multi-OLED display [next]
+    ├── [LIBRARY: oled_sh1107_spi] ✅ - SPI multi-OLED display (128x128, working)
     ├── [LIBRARY: animation_engine] 🔄 - Display animations [planned]
     └── [LIBRARY: performance_monitor] 🔄 - CPU/memory tracking [planned]
 ```
@@ -67,15 +66,16 @@ Synthesizer Framework
     ├── [LIBRARY: state_persist] - Save presets
     ├── [LIBRARY: boot_manager] - Startup sequence
     ├── [LIBRARY: midi2_pe] - Property Exchange for control mapping
-    ├── [LIBRARY: oled_ssd1306_mux] - Optional parameter display
+    ├── [LIBRARY: oled_sh1107_spi] - Optional parameter display
     └── [LIBRARY: performance_monitor] - Audio performance stats
 ```
 
 ## Library Categories
 
 ### Hardware I/O Libraries
-- **pot_scanner** ✅ - CD74HC4067 + potentiometer array with EMA filtering, music production sensitivity
+- **pot_scanner** ✅ - Basic ADC potentiometer reading with EMA filtering
 - **console_logger** ✅ - Tag-based logging with unique colors, system info utilities
+- **oled_sh1107_spi** ✅ - SPI multi-OLED display driver (128x128, non-blocking)
 - **activity_led** ✅ - LED activity patterns (deprecated in favor of inline logic)
 - **keyboard_2d** 🔄 - 25-key velostat with continuous pressure (Z) and pitch bend (X) [planned]
 - **encoder** 🔄 - Rotary encoder with button [planned]
@@ -93,7 +93,7 @@ Synthesizer Framework
 - **midi2_mpe_plus** - Enhanced MPE using MIDI 2.0 per-note controllers
 
 ### Display Libraries (Type-specific)
-- **oled_ssd1306_mux** - TCA9548A + multiple SSD1306 OLEDs
+- **oled_sh1107_spi** ✅ - SPI + multiple SH1107 128x128 OLEDs (working)
 - **tft_st7789** - TFT display driver (example for future)
 - **animation_engine** - Shared animation framework
 - **font_renderer** - Shared text rendering
