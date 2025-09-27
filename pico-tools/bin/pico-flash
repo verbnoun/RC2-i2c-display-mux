@@ -13,9 +13,10 @@ NC='\033[0m'
 
 # Configuration
 BUILD_DIR="${BUILD_DIR:-build}"
-MOUNT_TIMEOUT=10
+MOUNT_TIMEOUT=3
 SERIAL_DEVICE=""
 USE_PYTHON_RESET=false
+TARGET_USB_DEVICE=""
 
 # Print usage
 usage() {
@@ -26,6 +27,19 @@ usage() {
     echo "  -m           Manual mode only (skip auto-reset attempts)"
     echo "  -h           Show this help"
     exit 0
+}
+
+# Detect project type and set target USB device
+detect_project_usb_device() {
+    local cwd=$(pwd)
+    if [[ "$cwd" == *"/ValidateC/"* ]] || [[ "$cwd" == *"/BartlebyC/"* ]]; then
+        echo "/dev/tty.usbmodem1101"
+    elif [[ "$cwd" == *"/CandideC/"* ]]; then
+        echo "/dev/tty.usbmodem101"
+    else
+        # Default to auto-detection for other cases
+        echo ""
+    fi
 }
 
 # Parse arguments
@@ -40,6 +54,15 @@ while getopts "d:pmh" opt; do
     esac
 done
 shift $((OPTIND-1))
+
+# Set target USB device based on project if not specified
+if [ -z "$SERIAL_DEVICE" ]; then
+    TARGET_USB_DEVICE=$(detect_project_usb_device)
+    if [ -n "$TARGET_USB_DEVICE" ]; then
+        SERIAL_DEVICE="$TARGET_USB_DEVICE"
+        echo -e "${BLUE}🎯 Project-based targeting: $(basename "$TARGET_USB_DEVICE")${NC}"
+    fi
+fi
 
 # Find UF2 file
 if [ -n "$1" ]; then
@@ -58,16 +81,41 @@ fi
 echo -e "${BLUE}🚀 Smart Flash for Raspberry Pi Pico${NC}"
 echo -e "UF2 file: ${GREEN}$(basename "$UF2_FILE")${NC}"
 
-# Function to detect Pico mount point
+# Function to detect Pico mount point, optionally for specific USB device
 detect_pico_mount() {
-    if [ -d "/Volumes/RP2350" ]; then
-        echo "/Volumes/RP2350"
-    elif [ -d "/Volumes/RPI-RP2" ]; then
-        echo "/Volumes/RPI-RP2"
-    else
-        # Check for any mounted volume that looks like Pico
-        find /Volumes -maxdepth 1 -name "RP*" 2>/dev/null | head -n1
+    local target_device=$1
+    
+    # If no specific device targeting, use original logic
+    if [ -z "$target_device" ]; then
+        if [ -d "/Volumes/RP2350" ]; then
+            echo "/Volumes/RP2350"
+        elif [ -d "/Volumes/RPI-RP2" ]; then
+            echo "/Volumes/RPI-RP2"
+        else
+            # Check for any mounted volume that looks like Pico
+            find /Volumes -maxdepth 1 -name "RP*" 2>/dev/null | head -n1
+        fi
+        return
     fi
+    
+    # For device-specific targeting, find all Pico mounts and pick the right one
+    local all_mounts=$(find /Volumes -maxdepth 1 -name "RP*" 2>/dev/null)
+    
+    if [ -z "$all_mounts" ]; then
+        return
+    fi
+    
+    # If only one mount, assume it's ours
+    local mount_count=$(echo "$all_mounts" | wc -l | tr -d ' ')
+    if [ "$mount_count" -eq 1 ]; then
+        echo "$all_mounts"
+        return
+    fi
+    
+    # Multiple mounts - for now, pick first one
+    # TODO: Implement proper USB device to mount correlation
+    echo "$all_mounts" | head -n1
+    echo -e "${YELLOW}⚠️  Multiple Picos detected, using first mount${NC}" >&2
 }
 
 # Function to wait for Pico to mount
@@ -142,6 +190,39 @@ EOF
     return 0
 }
 
+# Function to detect power cycle by monitoring device file existence
+wait_for_power_cycle() {
+    local device=$1
+    local timeout_seconds=3
+    
+    # Find the device if not provided
+    if [ -z "$device" ]; then
+        device=$(ls /dev/tty.usbmodem* 2>/dev/null | head -n1)
+    fi
+    
+    if [ -z "$device" ] || [ ! -e "$device" ]; then
+        echo -e "${YELLOW}⚠️  No USB device to monitor${NC}"
+        return 1
+    fi
+    
+    echo -e "${BLUE}🔍 Monitoring $device for power cycle (${timeout_seconds}s)...${NC}"
+    
+    # Give command time to reach Pico and process
+    sleep 0.5
+    
+    # Monitor device file existence
+    for i in $(seq 1 $((timeout_seconds * 2))); do
+        if [ ! -e "$device" ]; then
+            echo -e "${GREEN}🔌 Power cycle detected! Device disappeared.${NC}"
+            return 0
+        fi
+        sleep 0.5
+    done
+    
+    echo -e "${YELLOW}⚠️  No power cycle detected${NC}"
+    return 1
+}
+
 # Function to send shutdown command for graceful cleanup
 send_shutdown_command() {
     local device=$1
@@ -169,21 +250,101 @@ send_shutdown_command() {
     return 1
 }
 
-# Function to send custom reset command
-send_reset_command() {
-    local device=$1
+# This function has been replaced by power_cycle_sequence()
+# Keeping for reference but no longer used
+
+# RESET_TO_BOOTSEL serial command removed - wrong protocol layer
+# The Pico SDK USB vendor interface uses USB control transfers, not serial commands
+
+# Graceful restart sequence - polite cleanup, no power cycling
+graceful_restart_sequence() {
+    echo -e "${BLUE}🧹 Sending polite restart via 'S' command${NC}"
     
-    if [ -z "$device" ] || [ ! -e "$device" ]; then
+    # Send 'S' command for graceful cleanup and restart
+    if send_shutdown_command "$SERIAL_DEVICE"; then
+        echo -e "${GREEN}✓ Graceful restart command sent${NC}"
+        echo -e "${BLUE}⏳ Waiting for Pico to restart cleanly...${NC}"
+        sleep 0.5  # Give Pico time to restart in normal mode
+        return 0
+    else
+        echo -e "${YELLOW}⚠️  Could not send graceful restart command${NC}"
         return 1
     fi
+}
+
+# BOOTSEL entry sequence - gets Pico into BOOTSEL mode
+bootsel_entry_sequence() {
+    # Method 1: 1200 baud reset (primary hardware method)
+    echo -e "${BLUE}🔧 Trying 1200 baud reset method${NC}"
+    if hardware_bootsel_1200_baud; then
+        echo -e "${BLUE}⏳ Waiting for BOOTSEL enumeration...${NC}"
+        if wait_for_pico 6; then  # Increased from 3 to 6 seconds
+            echo -e "${GREEN}✓ 1200 baud BOOTSEL successful${NC}"
+            return 0
+        fi
+    fi
     
-    echo -e "${BLUE}📡 Sending reset command to $device${NC}"
+    # Method 2: Double 1200 baud (alternative hardware method)
+    echo -e "${BLUE}🔁 Trying double 1200 baud reset${NC}"
+    if force_bootsel_hardware; then
+        echo -e "${BLUE}⏳ Waiting for BOOTSEL enumeration...${NC}"
+        if wait_for_pico 6; then  # Increased from 3 to 6 seconds
+            echo -e "${GREEN}✓ Double 1200 baud BOOTSEL successful${NC}"
+            return 0
+        fi
+    fi
     
-    # Send a special command that our firmware recognizes
-    # This assumes you've implemented a serial command handler
-    echo -n "RESET_TO_BOOTSEL" > "$device" 2>/dev/null || return 1
+    echo -e "${YELLOW}⚠️  Automatic BOOTSEL methods failed${NC}"
+    return 1
+}
+
+# Single 1200 baud reset for BOOTSEL entry
+hardware_bootsel_1200_baud() {
+    if [ -n "$SERIAL_DEVICE" ] && [ -e "$SERIAL_DEVICE" ]; then
+        if stty -f "$SERIAL_DEVICE" 1200 2>/dev/null; then
+            echo -e "${GREEN}✓ 1200 baud reset sent${NC}"
+            sleep 0.5
+            stty -f "$SERIAL_DEVICE" 115200 2>/dev/null || true
+            sleep 1
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Hardware BOOTSEL forcing methods (computer-side only)
+force_bootsel_hardware() {
+    # Method 1: Double 1200 baud reset (attempt to trigger BOOTSEL)
+    if [ -n "$SERIAL_DEVICE" ] && [ -e "$SERIAL_DEVICE" ]; then
+        echo -e "${BLUE}🔁 Double 1200 baud reset${NC}"
+        stty -f "$SERIAL_DEVICE" 1200 2>/dev/null && sleep 0.1
+        stty -f "$SERIAL_DEVICE" 115200 2>/dev/null && sleep 0.1  
+        stty -f "$SERIAL_DEVICE" 1200 2>/dev/null && sleep 0.1
+        stty -f "$SERIAL_DEVICE" 115200 2>/dev/null
+        sleep 1
+        return 0
+    fi
     
-    return 0
+    # Method 2: Could add other hardware methods here
+    return 1
+}
+
+# Manual BOOTSEL entry fallback
+manual_bootsel_entry() {
+    echo -e "${BLUE}📌 Manual BOOTSEL mode required${NC}"
+    echo "  1. Hold down the BOOTSEL button on target Pico"
+    echo "  2. Press and release RESET (or reconnect USB)"
+    echo "  3. Release BOOTSEL button"
+    echo
+    
+    if wait_for_pico $MOUNT_TIMEOUT; then
+        MOUNT_POINT=$(detect_pico_mount)
+        flash_pico "$MOUNT_POINT"
+    else
+        echo -e "${RED}❌ Timeout: Pico not detected in BOOTSEL mode${NC}"
+        echo "Please check your connection and try again"
+        exit 1
+    fi
 }
 
 # Main flashing logic
@@ -233,64 +394,48 @@ flash_pico() {
 
 # Main execution
 main() {
-    # Check if already in BOOTSEL mode
+    echo -e "${BLUE}🎯 Target device: ${SERIAL_DEVICE:-auto-detect}${NC}"
+    
+    # Step 1: Check if target Pico already in BOOTSEL mode
     MOUNT_POINT=$(detect_pico_mount)
     if [ -n "$MOUNT_POINT" ]; then
-        echo -e "${GREEN}✓ Pico already in BOOTSEL mode${NC}"
+        echo -e "${GREEN}✓ Target Pico already in BOOTSEL mode at $MOUNT_POINT${NC}"
         flash_pico "$MOUNT_POINT"
         exit 0
     fi
     
-    # Try software reset methods
-    if [ "$MANUAL_ONLY" = false ]; then
-        # First, try to send shutdown command for graceful cleanup
-        # Don't wait for BOOTSEL - just give it time to cleanup
-        send_shutdown_command "$SERIAL_DEVICE"
-        sleep 0.7  # Brief pause for cleanup to complete
-        
-        # Method 1: Serial reset (1200 baud trick)
-        if [ -n "$SERIAL_DEVICE" ]; then
-            reset_via_serial "$SERIAL_DEVICE" && wait_for_pico 5
-        else
-            # Try auto-detected device
-            reset_via_serial "" && wait_for_pico 5
-        fi
-        
-        MOUNT_POINT=$(detect_pico_mount)
-        if [ -n "$MOUNT_POINT" ]; then
-            flash_pico "$MOUNT_POINT"
-            exit 0
-        fi
-        
-        # Method 2: Custom reset command
-        if [ -n "$SERIAL_DEVICE" ]; then
-            send_reset_command "$SERIAL_DEVICE" && wait_for_pico 5
-            
-            MOUNT_POINT=$(detect_pico_mount)
-            if [ -n "$MOUNT_POINT" ]; then
-                flash_pico "$MOUNT_POINT"
-                exit 0
-            fi
-        fi
+    # Skip reset attempts if manual-only mode
+    if [ "$MANUAL_ONLY" = true ]; then
+        echo -e "${BLUE}📌 Manual mode: Please enter BOOTSEL manually${NC}"
+        manual_bootsel_entry
+        exit 0
     fi
     
-    # Fall back to manual mode
-    echo -e "${YELLOW}⚠️  Software reset failed or not available${NC}"
-    echo -e "${BLUE}📌 Please enter BOOTSEL mode manually:${NC}"
-    echo "  1. Hold down the BOOTSEL button"
-    echo "  2. Press and release RESET (or reconnect USB)"
-    echo "  3. Release BOOTSEL button"
-    echo
+    # Step 2: Graceful restart sequence
+    echo -e "${BLUE}🔄 Graceful restart sequence${NC}"
+    graceful_restart_sequence
     
-    # Wait for manual BOOTSEL
-    if wait_for_pico $MOUNT_TIMEOUT; then
-        MOUNT_POINT=$(detect_pico_mount)
-        flash_pico "$MOUNT_POINT"
+    # Step 3: BOOTSEL entry sequence (hardware methods only)
+    echo -e "${BLUE}🚀 BOOTSEL entry sequence${NC}"
+    if bootsel_entry_sequence; then
+        echo -e "${GREEN}✓ BOOTSEL entry successful${NC}"
     else
-        echo -e "${RED}❌ Timeout: Pico not detected in BOOTSEL mode${NC}"
-        echo "Please check your connection and try again"
-        exit 1
+        echo -e "${YELLOW}⚠️  BOOTSEL entry methods failed${NC}"
+        echo -e "${BLUE}🔍 Checking if BOOTSEL mode was achieved anyway...${NC}"
     fi
+    
+    # Step 4: Check for mount point (may exist even if BOOTSEL entry reported failure)
+    MOUNT_POINT=$(detect_pico_mount)
+    if [ -n "$MOUNT_POINT" ]; then
+        echo -e "${GREEN}✓ BOOTSEL mode detected at $MOUNT_POINT${NC}"
+        flash_pico "$MOUNT_POINT"
+        exit 0
+    fi
+    
+    # Step 5: Manual fallback - guaranteed to run if no mount found
+    echo -e "${YELLOW}⚠️  No BOOTSEL mount detected after all automatic methods${NC}"
+    echo -e "${BLUE}📌 Proceeding to manual BOOTSEL entry${NC}"
+    manual_bootsel_entry
 }
 
 # Run main function
