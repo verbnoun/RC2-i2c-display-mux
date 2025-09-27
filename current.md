@@ -30,26 +30,31 @@
 - **Reliable Methods**: Uses proven 1200 baud reset (same as Arduino IDE)
 - **Fast Development**: Clean restart → hardware reset → flash in ~10 seconds
 
-### ✅ MULTI-FONT GRAPHICS LIBRARY: Complete & Production Ready!
+### ✅ JAPANESE KANA FONT SYSTEM: Complete & Production Ready!
 
 ### Latest Changes (Just Completed)
-- **🎨 Complete Font System Overhaul** - Removed ALL inline font code, replaced with external ssd1306_graphics library
-- **📝 Three-Font System** - Commands 1/2/3 now use font_5x7, font_6x8, font_8x16 respectively
-- **🐛 Font Bug ELIMINATED** - No more "S???? F???" characters, all text renders perfectly
-- **🔧 C/C++ Linkage Fixed** - Added extern "C" guards for seamless library integration
-- **⚡ Production-Grade Library** - Modular ssd1306_graphics with proper font structures
+- **🇯🇵 Complete Japanese Font Collection** - Three MIT-licensed fonts with full kana support
+- **📝 Professional Font Sources** - Misaki (8px), PixelMplus (10px, 12px) from established projects
+- **🔧 2D Array Format** - Updated library to use external font data in standard 2D array format
+- **⚡ Conversion Pipeline** - font2c tool generates perfect C arrays from TTF fonts
+- **🧹 Clean Font Organization** - All fonts moved to main folder, ready for integration
 
-### Current Graphics Features
-- **Three Font Sizes** - 5x7 (compact), 6x8 (standard), 8x16 (large/headers)
-- **Perfect Text Rendering** - Complete ASCII support with proven external font data
-- **Font Switching Commands** - Command 1=small, 2=medium, 3=large font tests
-- **Library Architecture** - Clean separation: main.cpp uses ssd1306_graphics library
-- **Display Management** - Individual control of 5 OLED displays via TCA9548A
-- **Graphics Commands** - n=names, t=text demo, c=clear, f=fill, i=individual control
+### Current Font Collection
+- **misaki_8px_kana.c** - Tiny font (8x8 pixels) for compact displays
+- **pixelmplus_10px_kana.c** - Mid font (10x10 pixels) for standard text
+- **pixelmplus_12px_kana.c** - Large font (12x12 pixels) for headers/emphasis
+- **Character Coverage** - Complete ASCII + Hiragana + Katakana (no kanji needed)
+- **Licensing** - MIT/M+ FONTS LICENSE (commercial-friendly)
 
-### Verified Font System
-- **Command 1**: Small 5x7 font - 6 lines of compact text
-- **Command 2**: Medium 6x8 font - 4 lines of standard readable text  
-- **Command 3**: Large 8x16 font - 3 lines of bold header text
-- **All Commands**: Perfect character rendering, no artifacts or missing characters
-- **Library Integration**: ssd1306_graphics.h/.c with fonts.c for font data
+### Technical Implementation
+- **2D Array Format** - `const uint8_t font_name[][bytes]` ready for library integration
+- **External Sources** - No hand-coded fonts, uses professional pixel font projects
+- **Conversion Tools** - Documented process with font2c for future font additions
+- **Library Ready** - Updated ssd1306_graphics.h to support 2D array font data
+- **Modular Design** - Easy to swap fonts without modifying library code
+
+### Verified Character Support
+- **Romanji** - Complete ASCII: letters, numbers, punctuation, symbols
+- **Hiragana** - All 46 basic characters plus variants (が, ぎ, etc.)
+- **Katakana** - All 46 basic characters plus variants (ガ, ギ, etc.)
+- **Font Quality** - Professional pixel fonts optimized for small displays
