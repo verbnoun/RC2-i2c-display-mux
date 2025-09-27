@@ -1,5 +1,5 @@
 ## Application Frameworks
-*Status: Clean slate - Starting fresh with direct hardware control for OLED management.*
+*Status: Japanese font rendering working. Graphics system needs: animations, refresh rates, partial updates, etc.*
 
 ### Controller Framework
 **Purpose**: Hardware input device that sends commands/data to other devices
@@ -28,7 +28,7 @@ Controller Framework
     ├── [LIBRARY: console_logger] ✅ - Tag-based logging with unique colors
     ├── [LIBRARY: state_persist] 🔄 - Save/load settings [planned]
     ├── [LIBRARY: boot_manager] 🔄 - Startup sequence [planned]
-    ├── [LIBRARY: oled_sh1107_spi] ✅ - SPI multi-OLED display (128x128, working)
+    ├── [LIBRARY: ssd1306_graphics] 🔄 - I2C OLED displays (fonts working, animations/refresh/partial updates needed)
     ├── [LIBRARY: animation_engine] 🔄 - Display animations [planned]
     └── [LIBRARY: performance_monitor] 🔄 - CPU/memory tracking [planned]
 ```
@@ -66,7 +66,7 @@ Synthesizer Framework
     ├── [LIBRARY: state_persist] - Save presets
     ├── [LIBRARY: boot_manager] - Startup sequence
     ├── [LIBRARY: midi2_pe] - Property Exchange for control mapping
-    ├── [LIBRARY: oled_sh1107_spi] - Optional parameter display
+    ├── [LIBRARY: ssd1306_graphics] - Optional parameter display (fonts working)
     └── [LIBRARY: performance_monitor] - Audio performance stats
 ```
 
@@ -75,7 +75,8 @@ Synthesizer Framework
 ### Hardware I/O Libraries
 - **pot_scanner** ✅ - Basic ADC potentiometer reading with EMA filtering
 - **console_logger** ✅ - Tag-based logging with unique colors, system info utilities
-- **oled_sh1107_spi** ✅ - SPI multi-OLED display driver (128x128, non-blocking)
+- **ssd1306_graphics** 🔄 - I2C OLED displays with Japanese fonts (needs animations, refresh optimization)
+- **i2c_display_mux** ✅ - TCA9548A multiplexer for multiple I2C displays
 - **activity_led** ✅ - LED activity patterns (deprecated in favor of inline logic)
 - **keyboard_2d** 🔄 - 25-key velostat with continuous pressure (Z) and pitch bend (X) [planned]
 - **encoder** 🔄 - Rotary encoder with button [planned]
@@ -93,10 +94,10 @@ Synthesizer Framework
 - **midi2_mpe_plus** - Enhanced MPE using MIDI 2.0 per-note controllers
 
 ### Display Libraries (Type-specific)
-- **oled_sh1107_spi** ✅ - SPI + multiple SH1107 128x128 OLEDs (working)
-- **tft_st7789** - TFT display driver (example for future)
-- **animation_engine** - Shared animation framework
-- **font_renderer** - Shared text rendering
+- **ssd1306_graphics** 🔄 - I2C SSD1306 OLEDs with Japanese fonts (needs animations, refresh optimization)
+- **i2c_display_mux** ✅ - TCA9548A multiplexer for multiple I2C displays
+- **animation_engine** 🔄 - Shared animation framework [planned]
+- **font_renderer** ✅ - Japanese UTF-8 text rendering system
 
 ### Audio Libraries (Synth)
 - **audio_i2s_pcm5102** - PCM5102 DAC driver via I2S
