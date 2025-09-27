@@ -142,6 +142,33 @@ EOF
     return 0
 }
 
+# Function to send shutdown command for graceful cleanup
+send_shutdown_command() {
+    local device=$1
+    
+    if [ -z "$device" ]; then
+        # Auto-detect serial device
+        device=$(ls /dev/tty.usbmodem* 2>/dev/null | head -n1)
+        if [ -z "$device" ]; then
+            device=$(ls /dev/cu.usbmodem* 2>/dev/null | head -n1)
+        fi
+    fi
+    
+    if [ -n "$device" ] && [ -e "$device" ]; then
+        echo -e "${BLUE}🧹 Sending shutdown command to $device${NC}"
+        # Send capital S for shutdown - ValidateC projects support this
+        # Use timeout to prevent hanging if device disconnects during send
+        if timeout 2 sh -c "echo -n 'S' > '$device'" 2>/dev/null; then
+            echo -e "${GREEN}✓ Shutdown command sent${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Shutdown command may have been interrupted${NC}"
+        fi
+        return 0
+    fi
+    
+    return 1
+}
+
 # Function to send custom reset command
 send_reset_command() {
     local device=$1
@@ -216,6 +243,11 @@ main() {
     
     # Try software reset methods
     if [ "$MANUAL_ONLY" = false ]; then
+        # First, try to send shutdown command for graceful cleanup
+        # Don't wait for BOOTSEL - just give it time to cleanup
+        send_shutdown_command "$SERIAL_DEVICE"
+        sleep 0.7  # Brief pause for cleanup to complete
+        
         # Method 1: Serial reset (1200 baud trick)
         if [ -n "$SERIAL_DEVICE" ]; then
             reset_via_serial "$SERIAL_DEVICE" && wait_for_pico 5
