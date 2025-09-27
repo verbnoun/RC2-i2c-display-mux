@@ -207,6 +207,8 @@ void ConsoleLogger::vlog(log_level_t level, const char* tag, const char* format,
     const char* tag_color = COLOR_WHITE;
     if (strcmp(tag, TAG_POT) == 0) tag_color = COLOR_CYAN;
     else if (strcmp(tag, TAG_MUX) == 0) tag_color = COLOR_MAGENTA;
+    else if (strcmp(tag, TAG_I2C) == 0) tag_color = COLOR_BRIGHT_GREEN;
+    else if (strcmp(tag, TAG_OLED) == 0) tag_color = COLOR_BRIGHT_BLUE;
     else if (strcmp(tag, TAG_NORM) == 0) tag_color = COLOR_GREEN;
     else if (strcmp(tag, TAG_HW) == 0) tag_color = COLOR_YELLOW;
     else if (strcmp(tag, TAG_CONTROLLER) == 0) tag_color = COLOR_BLUE;
