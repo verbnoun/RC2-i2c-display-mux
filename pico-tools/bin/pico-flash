@@ -64,12 +64,83 @@ if [ -z "$SERIAL_DEVICE" ]; then
     fi
 fi
 
+# Function to find newest UF2 file by timestamp
+find_newest_uf2() {
+    local build_dir="$1"
+    
+    # Find all UF2 files and get their timestamps
+    local uf2_files=$(find "$build_dir" -name "*.uf2" 2>/dev/null)
+    
+    if [ -z "$uf2_files" ]; then
+        return 1
+    fi
+    
+    # Count UF2 files
+    local file_count=$(echo "$uf2_files" | wc -l | tr -d ' ')
+    
+    if [ "$file_count" -gt 1 ]; then
+        echo -e "${YELLOW}⚠️  Multiple UF2 files found ($file_count):${NC}" >&2
+        echo "$uf2_files" | while read -r file; do
+            local timestamp=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$file" 2>/dev/null || date -r "$(stat -f "%m" "$file" 2>/dev/null)" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "unknown")
+            local size=$(ls -lh "$file" | awk '{print $5}')
+            echo -e "  ${BLUE}$(basename "$file")${NC} - $timestamp ($size)" >&2
+        done
+        echo -e "${BLUE}🎯 Selecting newest file by timestamp${NC}" >&2
+    fi
+    
+    # Use stat to get modification time and sort by newest first
+    # macOS stat format: %m = modification time in seconds since epoch
+    local newest_file=$(echo "$uf2_files" | while read -r file; do
+        local mtime=$(stat -f "%m" "$file" 2>/dev/null || echo "0")
+        echo "$mtime $file"
+    done | sort -nr | head -n1 | cut -d' ' -f2-)
+    
+    echo "$newest_file"
+}
+
+# Validate UF2 file
+validate_uf2_file() {
+    local file="$1"
+    
+    if [ ! -f "$file" ]; then
+        echo -e "${RED}Error: UF2 file not found: $file${NC}"
+        return 1
+    fi
+    
+    # Check file size (should be reasonable for Pico firmware)
+    local size_bytes=$(stat -f "%z" "$file" 2>/dev/null || echo "0")
+    local size_kb=$((size_bytes / 1024))
+    
+    if [ "$size_bytes" -lt 1024 ]; then
+        echo -e "${RED}Error: UF2 file too small (${size_kb}KB) - possibly corrupted${NC}"
+        return 1
+    fi
+    
+    if [ "$size_bytes" -gt 10485760 ]; then  # 10MB
+        echo -e "${YELLOW}Warning: UF2 file very large (${size_kb}KB) - unusual for Pico firmware${NC}"
+    fi
+    
+    # Check if file is recent (within last 24 hours)
+    local file_age_seconds=$(( $(date +%s) - $(stat -f "%m" "$file" 2>/dev/null || echo "0") ))
+    local file_age_hours=$((file_age_seconds / 3600))
+    
+    if [ "$file_age_hours" -gt 24 ]; then
+        echo -e "${YELLOW}Warning: UF2 file is ${file_age_hours} hours old - may not be latest build${NC}"
+    fi
+    
+    # Show file details
+    local timestamp=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$file" 2>/dev/null || echo "unknown")
+    echo -e "${GREEN}✓ Valid UF2 file: $(basename "$file") (${size_kb}KB, $timestamp)${NC}"
+    
+    return 0
+}
+
 # Find UF2 file
 if [ -n "$1" ]; then
     UF2_FILE="$1"
 else
-    # Auto-detect UF2 file in build directory
-    UF2_FILE=$(find "$BUILD_DIR" -name "*.uf2" 2>/dev/null | head -n1)
+    # Auto-detect newest UF2 file in build directory
+    UF2_FILE=$(find_newest_uf2 "$BUILD_DIR")
 fi
 
 if [ -z "$UF2_FILE" ] || [ ! -f "$UF2_FILE" ]; then
@@ -79,7 +150,12 @@ if [ -z "$UF2_FILE" ] || [ ! -f "$UF2_FILE" ]; then
 fi
 
 echo -e "${BLUE}🚀 Smart Flash for Raspberry Pi Pico${NC}"
-echo -e "UF2 file: ${GREEN}$(basename "$UF2_FILE")${NC}"
+
+# Validate UF2 file before proceeding
+if ! validate_uf2_file "$UF2_FILE"; then
+    echo -e "${RED}Error: UF2 file validation failed${NC}"
+    exit 1
+fi
 
 # Function to detect Pico mount point, optionally for specific USB device
 detect_pico_mount() {

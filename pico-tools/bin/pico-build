@@ -74,6 +74,16 @@ fi
 # Create build directory
 mkdir -p "$BUILD_DIR"
 
+# Clean old UF2 files to prevent multiple UF2 confusion
+if [ -d "$BUILD_DIR" ]; then
+    OLD_UF2_FILES=$(find "$BUILD_DIR" -name "*.uf2" 2>/dev/null)
+    if [ -n "$OLD_UF2_FILES" ]; then
+        UF2_COUNT=$(echo "$OLD_UF2_FILES" | wc -l | tr -d ' ')
+        echo "🧹 Removing $UF2_COUNT old UF2 file(s) to prevent confusion..."
+        rm -f "$BUILD_DIR"/*.uf2
+    fi
+fi
+
 echo "🔧 Building Pico project..."
 echo "SDK: $PICO_SDK_PATH"
 echo "Board: $PICO_BOARD"
@@ -135,8 +145,18 @@ if [ -d "$BUILD_DIR" ]; then
     # Look for .uf2 files specifically for flashing info
     UF2_FILES=$(find "$BUILD_DIR" -name "*.uf2")
     if [ -n "$UF2_FILES" ]; then
+        UF2_COUNT=$(echo "$UF2_FILES" | wc -l | tr -d ' ')
         echo ""
-        echo "💡 Ready to flash! Use: pico-flash"
+        if [ "$UF2_COUNT" -eq 1 ]; then
+            echo "💡 Ready to flash! Use: pico-flash"
+        else
+            echo "⚠️  Multiple UF2 files created ($UF2_COUNT) - pico-flash will use newest:"
+            echo "$UF2_FILES" | while read -r file; do
+                timestamp=$(stat -f "%Sm" -t "%H:%M:%S" "$file" 2>/dev/null || echo "unknown")
+                echo "  $(basename "$file") - $timestamp"
+            done
+            echo "💡 Use: pico-flash (will auto-select newest)"
+        fi
     fi
 fi
 
