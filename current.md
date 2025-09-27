@@ -68,11 +68,17 @@
 - **Result** - All three font sizes render perfectly with mixed English/Japanese text
 
 ### Verified Character Support
-- **ASCII** - Complete punctuation, letters, numbers (!, ", #, ..., ~)
+- **ASCII** - Complete punctuation, letters, numbers including **SPACE** (space, !, ", #, ..., ~)
 - **Japanese Punctuation** - 【】「」、。・ (proper Japanese brackets and marks)
 - **Hiragana** - All 46 basic + variants: あいうえお...がぎぐげご...
 - **Katakana** - All 46 basic + variants: アイウエオ...ガギグゲゴ...
-- **Total** - 243 characters covering complete Japanese text needs
+- **Total** - 244 characters covering complete Japanese text needs
+
+### ✅ SPACE CHARACTER FIX: Complete & Working!
+- **Problem Solved** - "?" characters appearing where spaces should be (OLED1?-?5 → OLED1 - 5)
+- **Root Cause** - Space character (U+0020) missing from font2c character set and mapping table
+- **Fix Applied** - Space added as first character (index 0), all font files regenerated with 244 chars
+- **Result** - Proper space rendering in all text: "OLED1 - 5", "Test てすと: 5", "Progress しんぽ: 5"
 
 ### ✅ DEVELOPMENT TOOLS: Enhanced & Production Ready!
 
