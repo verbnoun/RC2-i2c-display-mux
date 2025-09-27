@@ -55,7 +55,7 @@ typedef struct {
     uint8_t height;          // Character height in pixels
     uint8_t first_char;      // ASCII code of first character
     uint8_t last_char;       // ASCII code of last character
-    const uint8_t (*font_data)[16]; // 2D Font bitmap data array [char][row]
+    const void *font_data;   // 2D Font bitmap data array [char][row] - cast to appropriate type in code
 } ssd1306_font_t;
 
 //============================================================================
@@ -237,10 +237,50 @@ bool ssd1306_display_off(ssd1306_t* display);
 bool ssd1306_invert_display(ssd1306_t* display, bool invert);
 
 //============================================================================
-// EXTERNAL FONTS
-// Include font headers as needed, e.g.:
-// #include "fonts/font8x16.h"
+// JAPANESE FONTS AND CHARACTER MAPPING
 //============================================================================
+
+// Include Japanese character mapping system
+#include "japanese_char_map.h"
+
+// Include Japanese font headers
+#include "fonts/misaki_8px_japanese.h"
+#include "fonts/pixelmplus_10px_japanese.h"
+#include "fonts/pixelmplus_12px_japanese.h"
+
+//============================================================================
+// JAPANESE TEXT FUNCTIONS
+//============================================================================
+
+/**
+ * Draw a UTF-8 character (supports Japanese)
+ * @param display Pointer to SSD1306 context
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param utf8_char Pointer to UTF-8 character bytes
+ * @param color 1 for white, 0 for black
+ * @return Width of the character drawn
+ */
+uint8_t ssd1306_draw_utf8_char(ssd1306_t* display, uint8_t x, uint8_t y, const uint8_t* utf8_char, bool color);
+
+/**
+ * Draw a UTF-8 string (supports Japanese)
+ * @param display Pointer to SSD1306 context
+ * @param x X starting coordinate
+ * @param y Y coordinate
+ * @param utf8_str UTF-8 string to draw
+ * @param color 1 for white, 0 for black
+ * @return Total width of the string drawn
+ */
+uint16_t ssd1306_draw_utf8_string(ssd1306_t* display, uint8_t x, uint8_t y, const char* utf8_str, bool color);
+
+/**
+ * Calculate the width of a UTF-8 string in pixels (supports Japanese)
+ * @param display Pointer to SSD1306 context
+ * @param utf8_str UTF-8 string to measure
+ * @return Width in pixels
+ */
+uint16_t ssd1306_utf8_string_width(ssd1306_t* display, const char* utf8_str);
 
 #ifdef __cplusplus
 }

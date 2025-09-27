@@ -4,6 +4,7 @@
 //============================================================================
 
 #include "ssd1306_graphics.h"
+#include "japanese_char_map.h"
 #include <string.h>
 
 //============================================================================
@@ -15,7 +16,7 @@ bool ssd1306_init(ssd1306_t* display, i2c_inst_t* i2c_port) {
     
     display->i2c_port = i2c_port;
     display->initialized = false;
-    display->current_font = &font_6x8;  // Default font
+    display->current_font = NULL;  // No default font - must be set externally
     
     // Clear buffer
     memset(display->buffer, 0, SSD1306_BUFFER_SIZE);
@@ -172,39 +173,9 @@ void ssd1306_set_font(ssd1306_t* display, const ssd1306_font_t* font) {
 }
 
 uint8_t ssd1306_draw_char(ssd1306_t* display, uint8_t x, uint8_t y, char ch, bool color) {
-    if (!display || !display->current_font) return 0;
-    
-    const ssd1306_font_t* font = display->current_font;
-    
-    // Check if character is in font range
-    if (ch < font->first_char || ch > font->last_char) {
-        ch = '?';  // Replace with question mark if not available
-        if (ch < font->first_char || ch > font->last_char) {
-            return font->width;  // Skip if even question mark not available
-        }
-    }
-    
-    // For 8x16 fonts using 2D array format
-    if (font->height == 16 && font->width == 8) {
-        // Draw character from 2D array font[char][row]
-        for (uint8_t row = 0; row < 16; row++) {
-            if (y + row >= SSD1306_HEIGHT) break;
-            
-            uint8_t row_data = font->font_data[ch][row];
-            
-            for (uint8_t col = 0; col < 8; col++) {
-                if (x + col >= SSD1306_WIDTH) break;
-                
-                // Check if bit is set (MSB = leftmost pixel)
-                bool pixel_on = (row_data & (0x80 >> col)) != 0;
-                if (pixel_on) {
-                    ssd1306_set_pixel(display, x + col, y + row, color);
-                }
-            }
-        }
-    }
-    
-    return font->width;
+    // Convert single byte character to UTF-8 and delegate to UTF-8 function
+    uint8_t utf8_char[2] = {(uint8_t)ch, 0};
+    return ssd1306_draw_utf8_char(display, x, y, utf8_char, color);
 }
 
 uint16_t ssd1306_draw_string(ssd1306_t* display, uint8_t x, uint8_t y, const char* str, bool color) {
@@ -262,4 +233,119 @@ bool ssd1306_invert_display(ssd1306_t* display, bool invert) {
     
     uint8_t cmd = invert ? SSD1306_DISPLAY_INVERT : SSD1306_DISPLAY_NORMAL;
     return ssd1306_send_command(display, cmd);
+}
+
+//============================================================================
+// JAPANESE TEXT RENDERING FUNCTIONS
+//============================================================================
+
+uint8_t ssd1306_draw_utf8_char(ssd1306_t* display, uint8_t x, uint8_t y, const uint8_t* utf8_char, bool color) {
+    if (!display || !display->current_font || !utf8_char) return 0;
+    
+    const ssd1306_font_t* font = display->current_font;
+    
+    // Get character index in font array
+    uint8_t bytes_consumed;
+    uint16_t char_index = japanese_char_to_index(utf8_char, &bytes_consumed);
+    
+    if (char_index == 0xFFFF) {
+        // Character not found, draw replacement character (question mark at index 30)
+        char_index = 30; // '?' in ASCII section
+    }
+    
+    // Draw character bitmap
+    // Cast font_data to appropriate type based on font size
+    if (font->width == 8 && font->height == 8) {
+        // Misaki 8px font
+        const uint8_t (*bitmap)[8] = (const uint8_t (*)[8])font->font_data;
+        for (uint8_t row = 0; row < 8; row++) {
+            uint8_t bitmap_byte = bitmap[char_index][row];
+            for (uint8_t col = 0; col < 8; col++) {
+                if (bitmap_byte & (1 << col)) {
+                    ssd1306_set_pixel(display, x + col, y + row, color);
+                }
+            }
+        }
+    } else if (font->width == 10 && font->height == 10) {
+        // PixelMplus 10px font (13 bytes per character = 104 bits for 100 pixels)
+        const uint8_t (*bitmap)[13] = (const uint8_t (*)[13])font->font_data;
+        
+        // Extract 100 bits (10x10 pixels) from 13 bytes efficiently
+        for (uint8_t row = 0; row < 10; row++) {
+            for (uint8_t col = 0; col < 10; col++) {
+                uint16_t bit_index = row * 10 + col;  // Pixel position in 100-pixel array
+                uint8_t byte_index = bit_index / 8;   // Which byte contains this bit
+                uint8_t bit_offset = bit_index % 8;   // Which bit within that byte
+                
+                if (byte_index < 13) {  // Safety check
+                    uint8_t byte_value = bitmap[char_index][byte_index];
+                    if (byte_value & (1 << bit_offset)) {
+                        ssd1306_set_pixel(display, x + col, y + row, color);
+                    }
+                }
+            }
+        }
+    } else if (font->width == 12 && font->height == 12) {
+        // PixelMplus 12px font (18 bytes per character = 144 bits for 144 pixels)
+        const uint8_t (*bitmap)[18] = (const uint8_t (*)[18])font->font_data;
+        
+        // Extract 144 bits (12x12 pixels) from 18 bytes efficiently
+        for (uint8_t row = 0; row < 12; row++) {
+            for (uint8_t col = 0; col < 12; col++) {
+                uint16_t bit_index = row * 12 + col;  // Pixel position in 144-pixel array
+                uint8_t byte_index = bit_index / 8;   // Which byte contains this bit
+                uint8_t bit_offset = bit_index % 8;   // Which bit within that byte
+                
+                if (byte_index < 18) {  // Safety check
+                    uint8_t byte_value = bitmap[char_index][byte_index];
+                    if (byte_value & (1 << bit_offset)) {
+                        ssd1306_set_pixel(display, x + col, y + row, color);
+                    }
+                }
+            }
+        }
+    }
+    
+    return font->width;
+}
+
+uint16_t ssd1306_draw_utf8_string(ssd1306_t* display, uint8_t x, uint8_t y, const char* utf8_str, bool color) {
+    if (!display || !utf8_str) return 0;
+    
+    uint16_t total_width = 0;
+    uint8_t current_x = x;
+    const uint8_t* str = (const uint8_t*)utf8_str;
+    
+    while (*str && current_x < SSD1306_WIDTH) {
+        uint8_t char_width = ssd1306_draw_utf8_char(display, current_x, y, str, color);
+        
+        // Move to next character in UTF-8 string
+        uint8_t bytes_consumed;
+        japanese_char_to_index(str, &bytes_consumed);
+        str += bytes_consumed;
+        
+        current_x += char_width + 1;  // Add 1 pixel spacing between characters
+        total_width += char_width + 1;
+    }
+    
+    return total_width;
+}
+
+uint16_t ssd1306_utf8_string_width(ssd1306_t* display, const char* utf8_str) {
+    if (!display || !utf8_str || !display->current_font) return 0;
+    
+    uint16_t width = 0;
+    const uint8_t* str = (const uint8_t*)utf8_str;
+    
+    while (*str) {
+        width += display->current_font->width + 1;  // Character width + spacing
+        
+        // Move to next character in UTF-8 string
+        uint8_t bytes_consumed;
+        japanese_char_to_index(str, &bytes_consumed);
+        str += bytes_consumed;
+    }
+    
+    if (width > 0) width--;  // Remove last spacing
+    return width;
 }

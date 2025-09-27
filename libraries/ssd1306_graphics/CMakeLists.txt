@@ -3,8 +3,11 @@
 
 add_library(ssd1306_graphics STATIC
     ssd1306_graphics.c
-    fonts.c
+    japanese_char_map.c
     oled_display_manager.c
+    fonts/misaki_8px_japanese.c
+    fonts/pixelmplus_10px_japanese.c
+    fonts/pixelmplus_12px_japanese.c
 )
 
 target_include_directories(ssd1306_graphics PUBLIC .)
