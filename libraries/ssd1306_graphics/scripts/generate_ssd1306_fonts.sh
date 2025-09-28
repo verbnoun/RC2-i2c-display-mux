@@ -102,12 +102,12 @@ cat > "$FONTS_DIR/pixelmplus_10px_japanese.c" << 'EOF'
 // Generated from PixelMplus10-Regular font (github.com/itouhiro/PixelMplus)
 // License: M+ FONTS LICENSE (MIT-compatible)
 // Characters: ASCII + Hiragana + Katakana + Japanese punctuation (244 total)
-// Format: 10x10 pixels, 13 bytes per character
+// Format: 10x13 pixels, 17 bytes per character
 //============================================================================
 
 #include "pixelmplus_10px_japanese.h"
 
-// Font bitmap data - 10x10 pixel characters in 2D array format
+// Font bitmap data - 10x13 pixel characters in 2D array format
 EOF
 
 # Add the extracted bitmap data
@@ -119,7 +119,7 @@ cat >> "$FONTS_DIR/pixelmplus_10px_japanese.c" << 'EOF'
 // Font structure compatible with ssd1306_graphics library
 const ssd1306_font_t pixelmplus_10px_japanese = {
     .width = 10,
-    .height = 10,
+    .height = 13,
     .first_char = 33,    // '!'
     .last_char = 126,    // '~' (ASCII range, Japanese chars need special mapping)
     .font_data = pixelmplus10_regular10_bmp
@@ -133,7 +133,7 @@ cat > "$FONTS_DIR/pixelmplus_10px_japanese.h" << 'EOF'
 // Generated from PixelMplus10-Regular font (github.com/itouhiro/PixelMplus)
 // License: M+ FONTS LICENSE (MIT-compatible)
 // Characters: ASCII + Hiragana + Katakana + Japanese punctuation (244 total)
-// Format: 10x10 pixels, 13 bytes per character
+// Format: 10x13 pixels, 17 bytes per character
 //============================================================================
 
 #ifndef PIXELMPLUS_10PX_JAPANESE_H
@@ -146,8 +146,8 @@ cat > "$FONTS_DIR/pixelmplus_10px_japanese.h" << 'EOF'
 extern "C" {
 #endif
 
-// Font bitmap data - 10x10 pixel characters
-extern const uint8_t pixelmplus10_regular10_bmp[][13];
+// Font bitmap data - 10x13 pixel characters
+extern const uint8_t pixelmplus10_regular10_bmp[][17];
 
 // Font structure for ssd1306_graphics library
 extern const ssd1306_font_t pixelmplus_10px_japanese;
@@ -170,12 +170,12 @@ cat > "$FONTS_DIR/pixelmplus_12px_japanese.c" << 'EOF'
 // Generated from PixelMplus12-Regular font (github.com/itouhiro/PixelMplus)
 // License: M+ FONTS LICENSE (MIT-compatible)
 // Characters: ASCII + Hiragana + Katakana + Japanese punctuation (244 total)
-// Format: 12x12 pixels, 18 bytes per character
+// Format: 12x15 pixels, 23 bytes per character
 //============================================================================
 
 #include "pixelmplus_12px_japanese.h"
 
-// Font bitmap data - 12x12 pixel characters in 2D array format
+// Font bitmap data - 12x15 pixel characters in 2D array format
 EOF
 
 # Add the extracted bitmap data
@@ -187,7 +187,7 @@ cat >> "$FONTS_DIR/pixelmplus_12px_japanese.c" << 'EOF'
 // Font structure compatible with ssd1306_graphics library
 const ssd1306_font_t pixelmplus_12px_japanese = {
     .width = 12,
-    .height = 12,
+    .height = 15,
     .first_char = 33,    // '!'
     .last_char = 126,    // '~' (ASCII range, Japanese chars need special mapping)
     .font_data = pixelmplus12_regular12_bmp
@@ -201,7 +201,7 @@ cat > "$FONTS_DIR/pixelmplus_12px_japanese.h" << 'EOF'
 // Generated from PixelMplus12-Regular font (github.com/itouhiro/PixelMplus)
 // License: M+ FONTS LICENSE (MIT-compatible)
 // Characters: ASCII + Hiragana + Katakana + Japanese punctuation (244 total)
-// Format: 12x12 pixels, 18 bytes per character
+// Format: 12x15 pixels, 23 bytes per character
 //============================================================================
 
 #ifndef PIXELMPLUS_12PX_JAPANESE_H
@@ -214,8 +214,8 @@ cat > "$FONTS_DIR/pixelmplus_12px_japanese.h" << 'EOF'
 extern "C" {
 #endif
 
-// Font bitmap data - 12x12 pixel characters
-extern const uint8_t pixelmplus12_regular12_bmp[][18];
+// Font bitmap data - 12x15 pixel characters
+extern const uint8_t pixelmplus12_regular12_bmp[][23];
 
 // Font structure for ssd1306_graphics library
 extern const ssd1306_font_t pixelmplus_12px_japanese;
@@ -233,8 +233,8 @@ echo ""
 echo "=== Generation Summary ==="
 echo "Generated fonts in: $FONTS_DIR"
 echo "✓ misaki_8px_japanese.c/.h (8x8, 8 bytes/char, 244 chars)"
-echo "✓ pixelmplus_10px_japanese.c/.h (10x10, 13 bytes/char, 244 chars)"
-echo "✓ pixelmplus_12px_japanese.c/.h (12x12, 18 bytes/char, 244 chars)"
+echo "✓ pixelmplus_10px_japanese.c/.h (10x13, 17 bytes/char, 244 chars)"
+echo "✓ pixelmplus_12px_japanese.c/.h (12x15, 23 bytes/char, 244 chars)"
 echo ""
 echo "All fonts include:"
 echo "- ASCII characters (!, \", #, ..., ~)"

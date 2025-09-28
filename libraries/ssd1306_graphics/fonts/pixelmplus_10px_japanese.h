@@ -3,7 +3,7 @@
 // Generated from PixelMplus10-Regular font (github.com/itouhiro/PixelMplus)
 // License: M+ FONTS LICENSE (MIT-compatible)
 // Characters: ASCII + Hiragana + Katakana + Japanese punctuation (244 total)
-// Format: 10x10 pixels, 13 bytes per character
+// Format: 10x13 pixels, 17 bytes per character
 //============================================================================
 
 #ifndef PIXELMPLUS_10PX_JAPANESE_H
@@ -16,8 +16,8 @@
 extern "C" {
 #endif
 
-// Font bitmap data - 10x10 pixel characters
-extern const uint8_t pixelmplus10_regular10_bmp[][13];
+// Font bitmap data - 10x13 pixel characters
+extern const uint8_t pixelmplus10_regular10_bmp[][17];
 
 // Font structure for ssd1306_graphics library
 extern const ssd1306_font_t pixelmplus_10px_japanese;

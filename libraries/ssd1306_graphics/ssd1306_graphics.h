@@ -53,8 +53,6 @@ extern "C" {
 typedef struct {
     uint8_t width;           // Character width in pixels
     uint8_t height;          // Character height in pixels
-    uint8_t baseline_offset; // Pixels from top of character to baseline (for proper descender positioning)
-    uint8_t descender_height;// Pixels below baseline (depth of descenders like g, p, q, y)
     uint8_t first_char;      // ASCII code of first character
     uint8_t last_char;       // ASCII code of last character
     const void *font_data;   // 2D Font bitmap data array [char][row] - cast to appropriate type in code

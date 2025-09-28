@@ -409,9 +409,8 @@ uint8_t ssd1306_draw_utf8_char(ssd1306_t* display, uint8_t x, uint8_t y, const u
         char_index = 30; // '?' in ASCII section
     }
     
-    // Apply baseline compensation: adjust Y coordinate upward by baseline_offset
-    // This ensures descenders render at the intended Y position
-    uint8_t render_y = (y >= font->baseline_offset) ? (y - font->baseline_offset) : 0;
+    // Use Y coordinate directly (no baseline compensation)
+    uint8_t render_y = y;
     
     // Draw character bitmap
     // Cast font_data to appropriate type based on font size
@@ -426,18 +425,18 @@ uint8_t ssd1306_draw_utf8_char(ssd1306_t* display, uint8_t x, uint8_t y, const u
                 }
             }
         }
-    } else if (font->width == 10 && font->height == 10) {
-        // PixelMplus 10px font (13 bytes per character = 104 bits for 100 pixels)
-        const uint8_t (*bitmap)[13] = (const uint8_t (*)[13])font->font_data;
+    } else if (font->width == 10 && font->height == 13) {
+        // PixelMplus 10px font (17 bytes per character = 136 bits for 130 pixels)
+        const uint8_t (*bitmap)[17] = (const uint8_t (*)[17])font->font_data;
         
-        // Extract 100 bits (10x10 pixels) from 13 bytes efficiently
-        for (uint8_t row = 0; row < 10; row++) {
+        // Extract 130 bits (10x13 pixels) from 17 bytes efficiently
+        for (uint8_t row = 0; row < 13; row++) {
             for (uint8_t col = 0; col < 10; col++) {
-                uint16_t bit_index = row * 10 + col;  // Pixel position in 100-pixel array
+                uint16_t bit_index = row * 10 + col;  // Pixel position in 130-pixel array
                 uint8_t byte_index = bit_index / 8;   // Which byte contains this bit
                 uint8_t bit_offset = bit_index % 8;   // Which bit within that byte
                 
-                if (byte_index < 13) {  // Safety check
+                if (byte_index < 17) {  // Safety check
                     uint8_t byte_value = bitmap[char_index][byte_index];
                     if (byte_value & (1 << bit_offset)) {
                         ssd1306_set_pixel(display, x + col, render_y + row, color);
@@ -445,18 +444,18 @@ uint8_t ssd1306_draw_utf8_char(ssd1306_t* display, uint8_t x, uint8_t y, const u
                 }
             }
         }
-    } else if (font->width == 12 && font->height == 12) {
-        // PixelMplus 12px font (18 bytes per character = 144 bits for 144 pixels)
-        const uint8_t (*bitmap)[18] = (const uint8_t (*)[18])font->font_data;
+    } else if (font->width == 12 && font->height == 15) {
+        // PixelMplus 12px font (23 bytes per character = 184 bits for 180 pixels)
+        const uint8_t (*bitmap)[23] = (const uint8_t (*)[23])font->font_data;
         
-        // Extract 144 bits (12x12 pixels) from 18 bytes efficiently
-        for (uint8_t row = 0; row < 12; row++) {
+        // Extract 180 bits (12x15 pixels) from 23 bytes efficiently
+        for (uint8_t row = 0; row < 15; row++) {
             for (uint8_t col = 0; col < 12; col++) {
-                uint16_t bit_index = row * 12 + col;  // Pixel position in 144-pixel array
+                uint16_t bit_index = row * 12 + col;  // Pixel position in 180-pixel array
                 uint8_t byte_index = bit_index / 8;   // Which byte contains this bit
                 uint8_t bit_offset = bit_index % 8;   // Which bit within that byte
                 
-                if (byte_index < 18) {  // Safety check
+                if (byte_index < 23) {  // Safety check
                     uint8_t byte_value = bitmap[char_index][byte_index];
                     if (byte_value & (1 << bit_offset)) {
                         ssd1306_set_pixel(display, x + col, render_y + row, color);
@@ -716,9 +715,8 @@ uint8_t ssd1306_draw_utf8_char_xor(ssd1306_t* display, uint8_t x, uint8_t y, con
         char_index = 30; // '?' in ASCII section
     }
     
-    // Apply baseline compensation: adjust Y coordinate upward by baseline_offset
-    // This ensures descenders render at the intended Y position
-    uint8_t render_y = (y >= font->baseline_offset) ? (y - font->baseline_offset) : 0;
+    // Use Y coordinate directly (no baseline compensation)
+    uint8_t render_y = y;
     
     // Draw character bitmap using XOR operations
     // Cast font_data to appropriate type based on font size
@@ -733,18 +731,18 @@ uint8_t ssd1306_draw_utf8_char_xor(ssd1306_t* display, uint8_t x, uint8_t y, con
                 }
             }
         }
-    } else if (font->width == 10 && font->height == 10) {
-        // PixelMplus 10px font (13 bytes per character = 104 bits for 100 pixels)
-        const uint8_t (*bitmap)[13] = (const uint8_t (*)[13])font->font_data;
+    } else if (font->width == 10 && font->height == 13) {
+        // PixelMplus 10px font (17 bytes per character = 136 bits for 130 pixels)
+        const uint8_t (*bitmap)[17] = (const uint8_t (*)[17])font->font_data;
         
-        // Extract 100 bits (10x10 pixels) from 13 bytes efficiently
-        for (uint8_t row = 0; row < 10; row++) {
+        // Extract 130 bits (10x13 pixels) from 17 bytes efficiently
+        for (uint8_t row = 0; row < 13; row++) {
             for (uint8_t col = 0; col < 10; col++) {
-                uint16_t bit_index = row * 10 + col;  // Pixel position in 100-pixel array
+                uint16_t bit_index = row * 10 + col;  // Pixel position in 130-pixel array
                 uint8_t byte_index = bit_index / 8;   // Which byte contains this bit
                 uint8_t bit_offset = bit_index % 8;   // Which bit within that byte
                 
-                if (byte_index < 13) {  // Safety check
+                if (byte_index < 17) {  // Safety check
                     uint8_t byte_value = bitmap[char_index][byte_index];
                     if (byte_value & (1 << bit_offset)) {
                         ssd1306_xor_pixel(display, x + col, render_y + row);
@@ -752,18 +750,18 @@ uint8_t ssd1306_draw_utf8_char_xor(ssd1306_t* display, uint8_t x, uint8_t y, con
                 }
             }
         }
-    } else if (font->width == 12 && font->height == 12) {
-        // PixelMplus 12px font (18 bytes per character = 144 bits for 144 pixels)
-        const uint8_t (*bitmap)[18] = (const uint8_t (*)[18])font->font_data;
+    } else if (font->width == 12 && font->height == 15) {
+        // PixelMplus 12px font (23 bytes per character = 184 bits for 180 pixels)
+        const uint8_t (*bitmap)[23] = (const uint8_t (*)[23])font->font_data;
         
-        // Extract 144 bits (12x12 pixels) from 18 bytes efficiently
-        for (uint8_t row = 0; row < 12; row++) {
+        // Extract 180 bits (12x15 pixels) from 23 bytes efficiently
+        for (uint8_t row = 0; row < 15; row++) {
             for (uint8_t col = 0; col < 12; col++) {
-                uint16_t bit_index = row * 12 + col;  // Pixel position in 144-pixel array
+                uint16_t bit_index = row * 12 + col;  // Pixel position in 180-pixel array
                 uint8_t byte_index = bit_index / 8;   // Which byte contains this bit
                 uint8_t bit_offset = bit_index % 8;   // Which bit within that byte
                 
-                if (byte_index < 18) {  // Safety check
+                if (byte_index < 23) {  // Safety check
                     uint8_t byte_value = bitmap[char_index][byte_index];
                     if (byte_value & (1 << bit_offset)) {
                         ssd1306_xor_pixel(display, x + col, render_y + row);

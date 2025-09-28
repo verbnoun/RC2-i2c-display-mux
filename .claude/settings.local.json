@@ -20,7 +20,10 @@
       "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-clean\")",
       "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-build\")",
       "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\")",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(unzip:*)",
+      "Bash(git clone:*)",
+      "Bash(scripts/extract_font_bitmaps.sh:*)"
     ],
     "deny": [],
     "ask": []
