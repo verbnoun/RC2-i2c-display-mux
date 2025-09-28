@@ -5,15 +5,16 @@
 
 ### Latest Win: Full Japanese Text Rendering System ✨
 - **Perfect Font Rendering** - All three font sizes (8px, 10px, 12px) now render flawlessly
+- **Descender Support Complete** - Characters like g, p, q, y, j display with full descenders
 - **Complete Character Support** - 244 characters: ASCII + Japanese punctuation + Hiragana + Katakana
-- **Production-Ready Pipeline** - Fully automated font generation from TTF sources
+- **Production-Ready Pipeline** - Fully automated font generation from TTF sources with proper bounding boxes
 - **Space Character Fixed** - Proper spacing in all text rendering
 - **UTF-8 Native** - Direct Japanese text support in C++ applications
 
 ### Current Font Collection
 - **misaki_8px_japanese** - Small font (8x8, 8 bytes/char) ✅ Perfect
-- **pixelmplus_10px_japanese** - Medium font (10x10, 13 bytes/char) ✅ Perfect
-- **pixelmplus_12px_japanese** - Large font (12x12, 18 bytes/char) ✅ Perfect
+- **pixelmplus_10px_japanese** - Medium font (10x13, 17 bytes/char) ✅ Perfect with Descenders
+- **pixelmplus_12px_japanese** - Large font (12x15, 23 bytes/char) ✅ Perfect with Descenders
 - **Professional Sources** - Authentic Japanese fonts (Misaki, PixelMplus projects)
 - **MIT Licensed** - Commercial-friendly licensing
 
@@ -42,6 +43,7 @@
 - **Project-Aware Targeting** - ValidateC/BartlebyC use tty.usbmodem1101, CandideC uses tty.usbmodem101
 - **Smart UF2 Selection** - Always flashes newest build by timestamp
 - **Graceful Restart** - Clean shutdown → 1200 baud reset → automatic BOOTSEL
+- **Font Diagnostics** - 'f' command in ValidateC for comprehensive font structure analysis
 
 ## Next Development Focus
 - **Graphics System Completion** - Animations, refresh rate optimization, partial screen updates
