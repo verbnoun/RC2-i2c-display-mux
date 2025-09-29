@@ -56,7 +56,8 @@ This sets up:
 
 ### Core Workflow Commands
 - **`pico-init <project-name> [template]`** - Create new Pico project
-  - Templates: basic-cpp, advanced-cpp, multicore-cpp, pio-cpp
+  - **attach-part** - Professional Attach Part foundation (console logging, git versioning, command interface)
+  - basic-cpp, advanced-cpp, multicore-cpp, pio-cpp - Standard pico-tools templates
 - **`pico-build [target] [--clean] [--verbose]`** - Build current project
 - **`pico-flash [uf2-file]`** - Flash to Pico (auto-detects device and handles BOOTSEL)
 - **`pico-clean [--all] [--cache]`** - Clean build artifacts
@@ -107,7 +108,7 @@ add_subdirectory($ENV{LIBRARIES_PATH}/pot_scanner pot_scanner)
 ### 1. Create New Project
 ```bash
 cd ValidateC  # or BartlebyC, CandideC
-pico-init my_project basic-cpp
+pico-init my_project attach-part  # Use Attach Part professional template
 cd my_project
 ```
 
@@ -167,14 +168,14 @@ When working in this environment, Claude Code should:
 
 ### Project Creation
 ```bash
-# Create basic C++ project
+# Create Attach Part project (RECOMMENDED)
+pico-init my_controller attach-part
+
+# Create basic C++ project (minimal)
 pico-init sensor_reader basic-cpp
 
-# Create advanced project with peripherals
+# Create advanced project with peripherals (complex)
 pico-init robot_controller advanced-cpp
-
-# Create multicore project
-pico-init parallel_processor multicore-cpp
 ```
 
 ### Build and Deploy

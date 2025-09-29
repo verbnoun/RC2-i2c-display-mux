@@ -22,6 +22,7 @@ if [ $# -lt 1 ]; then
     echo "Usage: pico-init <project-name> [template]"
     echo ""
     echo "Available templates:"
+    echo "  attach-part    - Attach Part professional foundation (RECOMMENDED)"
     echo "  basic-cpp      - Simple C++ project"
     echo "  advanced-cpp   - C++ with peripherals (I2C, SPI, PWM)"
     echo "  multicore-cpp  - Dual-core C++ template"
@@ -30,7 +31,7 @@ if [ $# -lt 1 ]; then
 fi
 
 PROJECT_NAME="$1"
-TEMPLATE="${2:-basic-cpp}"
+TEMPLATE="${2:-attach-part}"
 TEMPLATE_DIR="$TOOLS_DIR/templates/$TEMPLATE"
 
 # Validate template
