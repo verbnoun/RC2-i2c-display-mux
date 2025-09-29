@@ -11,13 +11,22 @@ Controller Framework
 │   ├── loop() - Main event loop
 │   └── shutdown() - Cleanup
 │
+├── Data Flow Orchestration ✅ - Controller pattern for multi-input/output coordination
+│   ├── Input handlers (pot_input_t, hid_input_t)
+│   ├── Processing pipeline (normalization → display formatting)
+│   ├── Output routing (OLED, MIDI)
+│   └── Priority management (system > HID > pots)
+│
 ├── Input Pipeline
-│   ├── [LIBRARY: pot_scanner] ✅ - 16-channel potentiometer scanning (basic ADC)
+│   ├── [LIBRARY: pot_scanner] ✅ - 16-channel potentiometer scanning with simple threshold detection
+│   ├── [LIBRARY: cd74hc4067] ✅ - Multiplexer for 16-channel pot arrays
 │   ├── [LIBRARY: keyboard_2d] 🔄 - 25-key with pressure (Z) and pitch bend (X) [planned]
 │   ├── [LIBRARY: encoder] 🔄 - Rotary encoder with button [planned]
 │   └── process_inputs() - Transform raw → MIDI 2.0 messages [planned]
 │
 ├── Output Pipeline  
+│   ├── [LIBRARY: ssd1306_graphics] ✅ - Multi-OLED pot list displays with proper font patterns
+│   ├── [LIBRARY: i2c_display_mux] ✅ - TCA9548A for 5-display coordination
 │   ├── [LIBRARY: usb_device] - Built-in USB device
 │   ├── [LIBRARY: pio_usb_host] - PIO USB host to Synth
 │   ├── [LIBRARY: midi2_ump] - Universal MIDI Packets
@@ -28,7 +37,6 @@ Controller Framework
     ├── [LIBRARY: console_logger] ✅ - Tag-based logging with unique colors
     ├── [LIBRARY: state_persist] 🔄 - Save/load settings [planned]
     ├── [LIBRARY: boot_manager] 🔄 - Startup sequence [planned]
-    ├── [LIBRARY: ssd1306_graphics] ✅ - I2C OLED displays with full Japanese font support (animations/refresh/partial updates needed)
     ├── [LIBRARY: animation_engine] 🔄 - Display animations [planned]
     └── [LIBRARY: performance_monitor] 🔄 - CPU/memory tracking [planned]
 ```

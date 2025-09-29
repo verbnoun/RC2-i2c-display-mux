@@ -1,42 +1,38 @@
 # Current Development Status
 *Current state snapshot - latest changes and immediate next steps only*
 
-## Current Focus: HID Multiplexer Libraries & Scanning
+## Current Focus: Controller Architecture Complete
 
-Moving on to HID input systems with multiplexer support for buttons, encoders, and other controls.
+Pot scanning and OLED display system completed. Controller orchestrates data flow between inputs and outputs.
 
 ### Next Tasks
-- HID multiplexer library development
-- Input scanning systems
-- Button matrix implementation
-- Encoder reading with multiplexers
+- Explore MIDI output integration
+- HID input expansion
+- Performance optimization
+- Multi-controller patterns
 
 ## Recent Work Completed (Today)
 
-### Graphics & Display Libraries Documentation
-- Created comprehensive README for ssd1306_graphics library (71+ functions documented)
-- Rewrote i2c_display_mux README with practical coordination patterns
-- Clarified library independence - mux and graphics are separate but coordinate
-- Added real-world examples without referencing validation projects
-- Documented known issues (text boundary calculations WIP)
+### Controller Architecture Complete (September 29, 2025)
+- **Pot Scanning**: 16-channel scanning with CD74HC4067, simple threshold detection
+- **OLED Display**: Multi-display pot lists using proper graphics library patterns
+- **Controller Module**: Data flow orchestration (ADC → Controller → normalization → display → OLED)
+- **Hardware Validated**: 500μs settling, 30 ADC threshold, RC filtering (470Ω + 47nF)
+- **Display Mapping**: Hardware-specific pot→OLED assignments with 4-pot lists per display
+- **Live Controls**: [ ] keys for threshold adjustment, proper font initialization
 
-### Project Template System
-- Created Attach Part foundation template in `pico-tools/templates/attach-part/`
-- Extracted professional patterns from graphics_validation (console logging, git versioning, command interface)
-- Hardware-agnostic foundation ready for any project type
-- Includes console_logger integration and interactive debugging from day one
-
-### Library Status
-- **Graphics Library**: Production ready with UTF-8 native API and smart character spacing (proper romanji half-width + Japanese full-width)
-- **Mux Library**: Production ready for 8-channel display management  
+### Library Status  
+- **CD74HC4067 Library**: Production ready with validated hardware settings for pot scanning
+- **Pot Scanner Library**: Production ready with simple threshold-based change detection
 - **Console Logger**: Production ready with tag-based color logging
-- **Template System**: Professional foundation template available
+- **Graphics Library**: Production ready with UTF-8 native API
+- **Display Mux Library**: Production ready for 8-channel display management
 
 ## Hardware Configuration
 - **Platform**: Raspberry Pi Pico 2 (RP2350)
-- **Display**: 5x SSD1306 OLEDs via TCA9548A
-- **I2C**: GP14 (SDA), GP15 (SCL) on I2C1
-- **Next**: HID input multiplexers
+- **Display**: 5x SSD1306 OLEDs via TCA9548A (GP14 SDA, GP15 SCL)
+- **Pot Scanning**: 16x pots via CD74HC4067 (GP8-11 control, GP28 ADC with RC filter)
+- **Next**: OLED display coordination with pot values
 
 ## Development Environment
 - **Build Tools**: pico-tools with auto-flash support
