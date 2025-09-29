@@ -2,7 +2,7 @@
 // Misaki Gothic 8px Japanese Font - Header
 // Generated from authentic Misaki Gothic font (littlelimit.net/misaki.htm)
 // License: Free software (very permissive)
-// Characters: ASCII + Hiragana + Katakana + Japanese punctuation (244 total)
+// Characters: ASCII + Hiragana + Katakana + Japanese punctuation (249 total)
 // Format: 8x8 pixels, 8 bytes per character
 //============================================================================
 

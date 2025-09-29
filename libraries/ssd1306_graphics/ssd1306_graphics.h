@@ -222,20 +222,20 @@ void ssd1306_set_font(ssd1306_t* display, const ssd1306_font_t* font);
 uint8_t ssd1306_draw_char(ssd1306_t* display, uint8_t x, uint8_t y, char ch, bool color);
 
 /**
- * Draw a string
+ * Draw a UTF-8 string (supports Japanese with proper spacing)
  * @param display Pointer to SSD1306 context
  * @param x X starting coordinate
  * @param y Y coordinate
- * @param str String to draw
+ * @param str UTF-8 string to draw
  * @param color 1 for white, 0 for black
  * @return Total width of the string drawn
  */
 uint16_t ssd1306_draw_string(ssd1306_t* display, uint8_t x, uint8_t y, const char* str, bool color);
 
 /**
- * Calculate the width of a string in pixels
+ * Calculate the width of a UTF-8 string in pixels (supports Japanese with proper spacing)
  * @param display Pointer to SSD1306 context
- * @param str String to measure
+ * @param str UTF-8 string to measure
  * @return Width in pixels
  */
 uint16_t ssd1306_string_width(ssd1306_t* display, const char* str);
@@ -436,24 +436,80 @@ void ssd1306_draw_styled_bar(ssd1306_t* display, uint8_t x, uint8_t y,
  */
 uint8_t ssd1306_draw_utf8_char(ssd1306_t* display, uint8_t x, uint8_t y, const uint8_t* utf8_char, bool color);
 
-/**
- * Draw a UTF-8 string (supports Japanese)
- * @param display Pointer to SSD1306 context
- * @param x X starting coordinate
- * @param y Y coordinate
- * @param utf8_str UTF-8 string to draw
- * @param color 1 for white, 0 for black
- * @return Total width of the string drawn
- */
-uint16_t ssd1306_draw_utf8_string(ssd1306_t* display, uint8_t x, uint8_t y, const char* utf8_str, bool color);
+// REMOVED FUNCTIONS - Cause compilation errors if used
+#define ssd1306_draw_utf8_string(...) \
+    _Static_assert(0, "ssd1306_draw_utf8_string() removed - use ssd1306_draw_string() (now UTF-8 by default)")
+    
+#define ssd1306_utf8_string_width(...) \
+    _Static_assert(0, "ssd1306_utf8_string_width() removed - use ssd1306_string_width() (now UTF-8 by default)")
+
+//============================================================================
+// SMART TEXT UTILITIES (Font-Aware Positioning and Clearing)
+//============================================================================
 
 /**
- * Calculate the width of a UTF-8 string in pixels (supports Japanese)
- * @param display Pointer to SSD1306 context
- * @param utf8_str UTF-8 string to measure
- * @return Width in pixels
+ * Text bounds calculation result
  */
-uint16_t ssd1306_utf8_string_width(ssd1306_t* display, const char* utf8_str);
+typedef struct {
+    uint8_t x, y;           // Adjusted position
+    uint8_t width, height;  // Text dimensions
+    bool fits;              // Whether text fits at position
+} text_bounds_t;
+
+/**
+ * Calculate text bounds and check if it fits at the given position
+ * @param display Pointer to SSD1306 context
+ * @param x X starting coordinate
+ * @param y Y starting coordinate
+ * @param str String to measure
+ * @return Text bounds information with fit status
+ */
+text_bounds_t ssd1306_calculate_text_bounds(ssd1306_t* display, uint8_t x, uint8_t y, const char* str);
+
+/**
+ * Clear the exact area that text would occupy using current font
+ * @param display Pointer to SSD1306 context
+ * @param x X starting coordinate
+ * @param y Y starting coordinate
+ * @param str String to measure for clearing
+ */
+void ssd1306_clear_text_area(ssd1306_t* display, uint8_t x, uint8_t y, const char* str);
+
+/**
+ * Clear text area using a specific font (without changing current font)
+ * @param display Pointer to SSD1306 context
+ * @param x X starting coordinate
+ * @param y Y starting coordinate
+ * @param str String to measure for clearing
+ * @param font Font to use for size calculations
+ */
+void ssd1306_clear_text_area_with_font(ssd1306_t* display, uint8_t x, uint8_t y, 
+                                       const char* str, const ssd1306_font_t* font);
+
+/**
+ * Draw string with automatic positioning to fit within screen bounds
+ * @param display Pointer to SSD1306 context
+ * @param x X starting coordinate (will be adjusted if needed)
+ * @param y Y starting coordinate
+ * @param str String to draw
+ * @param color 1 for white, 0 for black
+ * @return Actual X position where text was drawn
+ */
+uint8_t ssd1306_draw_string_fitted(ssd1306_t* display, uint8_t x, uint8_t y, const char* str, bool color);
+
+// REMOVED FUNCTION - Cause compilation error if used
+#define ssd1306_draw_utf8_string_fitted(...) \
+    _Static_assert(0, "ssd1306_draw_utf8_string_fitted() removed - use ssd1306_draw_string_fitted() (now UTF-8 by default)")
+
+/**
+ * Clear text area where inverted text will be drawn, using maximum possible font height
+ * This prevents artifacts from previous renders with different fonts
+ * @param display Pointer to SSD1306 context
+ * @param x X starting coordinate
+ * @param y Y starting coordinate
+ * @param str String to measure for clearing
+ */
+void ssd1306_clear_inverted_text_area(ssd1306_t* display, uint8_t x, uint8_t y, const char* str);
 
 //============================================================================
 // INVERSION AND XOR FUNCTIONS
@@ -489,50 +545,66 @@ void ssd1306_invert_region(ssd1306_t* display, uint8_t x, uint8_t y, uint8_t wid
 uint8_t ssd1306_draw_utf8_char_xor(ssd1306_t* display, uint8_t x, uint8_t y, const uint8_t* utf8_char, bool color);
 
 /**
- * Draw a UTF-8 string with inverted pixels (XOR mode)
+ * Draw a string with inverted pixels (XOR mode)
  * @param display Pointer to SSD1306 context
  * @param x X starting coordinate
  * @param y Y coordinate
- * @param utf8_str UTF-8 string to draw
+ * @param str String to draw
  * @return Total width of the string drawn
  */
-uint16_t ssd1306_draw_utf8_string_inverted(ssd1306_t* display, uint8_t x, uint8_t y, const char* utf8_str);
+uint16_t ssd1306_draw_string_inverted(ssd1306_t* display, uint8_t x, uint8_t y, const char* str);
+
+// REMOVED FUNCTION - Cause compilation error if used
+#define ssd1306_draw_utf8_string_inverted(...) \
+    _Static_assert(0, "ssd1306_draw_utf8_string_inverted() removed - use ssd1306_draw_string_inverted() (now UTF-8 by default)")
 
 //============================================================================
 // TEXT ANIMATION FUNCTIONS (Build Effects)
 //============================================================================
 
 /**
- * Draw a UTF-8 string with typewriter effect (progressive character reveal)
+ * Draw a string with typewriter effect (progressive character reveal)
  * @param display Pointer to SSD1306 context
  * @param x X starting coordinate
  * @param y Y coordinate
- * @param utf8_str UTF-8 string to draw
+ * @param str String to draw
  * @param progress_ms Current animation time in milliseconds
  * @param char_interval_ms Milliseconds per character
  * @param show_cursor true to show blinking cursor
  * @return Total width that would be drawn when complete
  */
-uint16_t ssd1306_draw_utf8_string_typewriter(ssd1306_t* display, uint8_t x, uint8_t y, 
-                                             const char* utf8_str, uint32_t progress_ms, 
-                                             uint32_t char_interval_ms, bool show_cursor);
+uint16_t ssd1306_draw_string_typewriter(ssd1306_t* display, uint8_t x, uint8_t y, 
+                                        const char* str, uint32_t progress_ms, 
+                                        uint32_t char_interval_ms, bool show_cursor);
+
+// REMOVED FUNCTION - Cause compilation error if used
+#define ssd1306_draw_utf8_string_typewriter(...) \
+    _Static_assert(0, "ssd1306_draw_utf8_string_typewriter() removed - use ssd1306_draw_string_typewriter() (now UTF-8 by default)")
 
 /**
- * Count actual UTF-8 characters in a string (not bytes)
- * @param utf8_str UTF-8 string to count
- * @return Number of UTF-8 characters
+ * Count actual characters in a string (not bytes, handles UTF-8)
+ * @param str String to count
+ * @return Number of characters
  */
-uint16_t ssd1306_utf8_char_count(const char* utf8_str);
+uint16_t ssd1306_char_count(const char* str);
+
+// REMOVED FUNCTION - Cause compilation error if used
+#define ssd1306_utf8_char_count(...) \
+    _Static_assert(0, "ssd1306_utf8_char_count() removed - use ssd1306_char_count() (now UTF-8 by default)")
 
 /**
- * Extract a substring with a specific number of UTF-8 characters
- * @param utf8_str Source UTF-8 string
+ * Extract a substring with a specific number of characters (handles UTF-8)
+ * @param str Source string
  * @param char_count Number of characters to extract
  * @param buffer Output buffer for substring
  * @param buffer_size Size of output buffer
  * @return Number of bytes written to buffer
  */
-uint16_t ssd1306_utf8_substring(const char* utf8_str, uint16_t char_count, char* buffer, uint16_t buffer_size);
+uint16_t ssd1306_substring(const char* str, uint16_t char_count, char* buffer, uint16_t buffer_size);
+
+// REMOVED FUNCTION - Cause compilation error if used
+#define ssd1306_utf8_substring(...) \
+    _Static_assert(0, "ssd1306_utf8_substring() removed - use ssd1306_substring() (now UTF-8 by default)")
 
 #ifdef __cplusplus
 }

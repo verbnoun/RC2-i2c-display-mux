@@ -27,7 +27,7 @@ Moving on to HID input systems with multiplexer support for buttons, encoders, a
 - Includes console_logger integration and interactive debugging from day one
 
 ### Library Status
-- **Graphics Library**: Production ready with full Japanese font support (249 chars)
+- **Graphics Library**: Production ready with UTF-8 native API and smart character spacing (proper romanji half-width + Japanese full-width)
 - **Mux Library**: Production ready for 8-channel display management  
 - **Console Logger**: Production ready with tag-based color logging
 - **Template System**: Professional foundation template available

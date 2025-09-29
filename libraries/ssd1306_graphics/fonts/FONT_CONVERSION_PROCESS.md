@@ -155,12 +155,16 @@ typedef struct {
 ### Character Mapping System
 Need UTF-8 → array index lookup for Japanese characters beyond ASCII range.
 
-## Results Achieved
+## Results Achieved ✅ COMPLETE
 ✅ **Three perfect Japanese fonts** in proper embedded format  
-✅ **Complete character coverage** (ASCII + Hiragana + Katakana)  
-✅ **Memory efficient** (8, 10, 12 bytes per character)  
+✅ **Complete character coverage** (ASCII + Hiragana + Katakana + punctuation)  
+✅ **Small kana support** (ゃゅょッ) - no more `>` characters  
+✅ **SPACE character handling** - proper word spacing  
+✅ **Prolonged sound mark** (ー) - "カーソル" displays correctly  
+✅ **Memory efficient** (8, 10, 12 bytes per character, 249 total chars)  
 ✅ **Professional quality** (authentic Japanese font sources)  
-✅ **Commercial licensing** (MIT/permissive)
+✅ **Commercial licensing** (MIT/permissive)  
+✅ **UTF-8 encoding solution** documented for reliable generation
 
 ## Future Font Additions
 To add new fonts, follow this exact process:
@@ -248,6 +252,55 @@ extern const ssd1306_font_t [font_name];
 
 This process transforms the complex font2c output into clean, embedded-optimized font files ready for integration with ssd1306_graphics library.
 
+## CRITICAL UTF-8 ENCODING SOLUTION (Small Kana & SPACE Fix)
+
+### UTF-8 Encoding Requirements
+**BREAKTHROUGH**: Font2c requires explicit UTF-8 encoding for Japanese characters. Manual INI files often lack proper encoding, causing small kana (ゃゅょッ) to be skipped.
+
+**Solution**: Generate INI files programmatically with Python to ensure UTF-8 encoding:
+
+```python
+# Create UTF-8 encoded INI files
+with open('misaki_8px_final.ini', 'w', encoding='utf-8') as f:
+    f.write("""[misaki_8px]
+bpp = 1
+font = /path/to/misaki_gothic.ttf
+size = 8
+text = {|}~ あいうえお...ゃやゅゆょよ...ッツ...
+offset = (0,0)
+fixed_width_height = (8,8)
+max_width = 8
+encoding_method = raw
+export_dir = ./export/
+""")
+```
+
+### Small Kana Characters (MUST INCLUDE)
+These characters were missing and displayed as `>`:
+- ゃ (small ya, U+3083) 
+- ゅ (small yu, U+3085)
+- ょ (small yo, U+3087) 
+- ッ (small tsu, U+30C3)
+
+### SPACE Character Handling
+- SPACE (U+0020) must be included but cannot be first character in sequence
+- Position SPACE after tilde (~) in character set: `{|}~ あいうえお...`
+- Font2c will place SPACE at index 0 automatically - this is correct behavior
+
+### Katakana Punctuation Status
+All essential punctuation now included:
+- ー (prolonged sound mark, U+30FC) - ✅ INCLUDED (fixes "カーソル" display)
+- ・ (middle dot, U+30FB) - ✅ INCLUDED
+
+Optional characters for future expansion:
+- ゝ (hiragana iteration mark, U+309D) - rarely used
+- ヽ (katakana iteration mark, U+30FD) - rarely used
+
+### Updated Character Set (249 characters)
+```
+SPACE {|}~ あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもゃやゅゆょよらりるれろわをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポッツ・ー
+```
+
 ## Post-Integration Character Mapping
 
 ### Step 9: Generate Character Mapping Table
@@ -259,7 +312,7 @@ python3 generate_char_mapping.py /tmp/export/misaki_8px.c > char_mapping_output.
 ```
 
 This script:
-- Extracts all 243 characters from font2c output
+- Extracts all 249 characters from font2c output
 - Maps ASCII character names to Unicode values  
 - Maps Japanese characters via hex codes (0x3042 = あ)
 - Generates sorted mapping table for binary search
@@ -268,8 +321,8 @@ This script:
 ### Step 10: Update Character Mapping
 Replace the char_map[] array in japanese_char_map.c with generated output:
 1. Copy generated mapping table from script output
-2. Update CHAR_MAP_SIZE define
-3. Verify all 243 characters are mapped correctly
+2. Update CHAR_MAP_SIZE define to 249
+3. Verify all 249 characters including SPACE, small kana, and ー are mapped correctly
 
 ### Production Scripts Available
 All font generation and mapping scripts are in `libraries/ssd1306_graphics/scripts/`:

@@ -2,7 +2,7 @@
 // PixelMplus 10px Japanese Font - Header
 // Generated from PixelMplus10-Regular font (github.com/itouhiro/PixelMplus)
 // License: M+ FONTS LICENSE (MIT-compatible)
-// Characters: ASCII + Hiragana + Katakana + Japanese punctuation (244 total)
+// Characters: ASCII + Hiragana + Katakana + Japanese punctuation (249 total)
 // Format: 10x13 pixels, 17 bytes per character
 //============================================================================
 

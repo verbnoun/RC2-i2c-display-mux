@@ -23,7 +23,7 @@
 
 // Hardware-focused pot scanner configuration
 typedef struct {
-    uint adc_pin;                      // ADC signal input pin (GP26-29)
+    uint adc_pin;                      // ADC signal input pin (MUST be GP26-29 - Pico hardware constraint)
     float ema_alpha;                   // EMA smoothing factor for electrical noise
     uint16_t glitch_threshold;         // Single-sample outlier rejection threshold
     uint32_t scan_interval_ms;         // Scan interval for automatic scanning

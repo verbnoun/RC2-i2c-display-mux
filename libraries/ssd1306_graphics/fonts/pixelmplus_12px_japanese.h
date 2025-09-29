@@ -2,7 +2,7 @@
 // PixelMplus 12px Japanese Font - Header
 // Generated from PixelMplus12-Regular font (github.com/itouhiro/PixelMplus)
 // License: M+ FONTS LICENSE (MIT-compatible)
-// Characters: ASCII + Hiragana + Katakana + Japanese punctuation (244 total)
+// Characters: ASCII + Hiragana + Katakana + Japanese punctuation (249 total)
 // Format: 12x15 pixels, 23 bytes per character
 //============================================================================
 

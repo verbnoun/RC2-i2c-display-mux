@@ -21,9 +21,9 @@ bool PotScanner::init(const pot_scanner_config_t& config) {
     // Store configuration
     config_ = config;
     
-    // Validate ADC pin
+    // Validate ADC pin (Raspberry Pi Pico hardware constraint)
     if (config_.adc_pin < 26 || config_.adc_pin > 29) {
-        LOG(TAG_POT, "ERROR: Invalid ADC pin %d - must be GP26-GP29", config_.adc_pin);
+        LOG(TAG_POT, "ERROR: Invalid ADC pin %d - must be GP26-GP29 (Pico hardware constraint)", config_.adc_pin);
         return false;
     }
     
