@@ -349,3 +349,39 @@ ls -la ../pico-tools/bin/    # Verify tool locations before use
 - Outdated CMakeLists.txt after file changes
 - Editing files without reading them first
 - Complex changes without intermediate testing
+
+## **CRITICAL: Library Design Requirements**
+
+### **Hardware Configuration Independence**
+**All libraries MUST be hardware-agnostic and pin-configurable:**
+
+- ✅ **No Hardcoded Pins**: Libraries must never hardcode specific GPIO pin assignments
+- ✅ **Configuration Structures**: Use config structs to pass pin assignments from main application
+- ✅ **Flexible Initialization**: Accept pin configuration during library initialization
+- ✅ **Hardware Constraints Only**: Only validate hardware limitations (e.g., ADC pins must be GP26-29 on Pico)
+- ✅ **Documentation**: README must show diverse pin configuration examples, not suggest "standard" pins
+
+### **Bad Example (Hardcoded)**
+```c
+// DON'T DO THIS - hardcoded pins
+const uint LED_PIN = 25;
+const uint I2C_SDA = 14;
+```
+
+### **Good Example (Configurable)**
+```c  
+// DO THIS - configurable pins
+typedef struct {
+    uint led_pin;
+    uint sda_pin;
+    uint scl_pin;
+} my_lib_config_t;
+
+bool my_lib_init(const my_lib_config_t& config);
+```
+
+### **Why This Matters**
+- **Hardware Flexibility**: Different projects use different pin layouts
+- **Multi-Instance Support**: Same library can be used multiple times with different pins  
+- **Professional Quality**: Industry-standard embedded library design
+- **Future-Proofing**: Libraries work with any compatible hardware configuration
