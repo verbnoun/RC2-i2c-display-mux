@@ -23,7 +23,10 @@
       "Bash(cd:*)",
       "Bash(unzip:*)",
       "Bash(git clone:*)",
-      "Bash(scripts/extract_font_bitmaps.sh:*)"
+      "Bash(scripts/extract_font_bitmaps.sh:*)",
+      "Bash(./rebuild_japanese_fonts.sh:*)",
+      "Bash(./extract_font_bitmaps.sh:*)",
+      "Bash(./generate_ssd1306_fonts.sh:*)"
     ],
     "deny": [],
     "ask": []
