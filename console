@@ -138,34 +138,77 @@ echo "  b - ${GREEN}Reboot to BOOTSEL (for firmware updates!)${NC}"
 echo "  h - Help"
 echo
 
-# Show exit instructions
+# Show exit instructions and auto-reconnect info
+echo -e "${CYAN}🔄 Auto-reconnect enabled - console will stay open through flashing/reboots${NC}"
 if [ "$USE_SCREEN" = true ]; then
     echo -e "${YELLOW}To exit: Ctrl+A, then K, then Y${NC}"
-    echo
-    echo "Connecting..."
-    sleep 1
-    
-    # Use screen with logging (screen doesn't support piped timestamps easily)
-    if [ "$HAS_TS" = true ]; then
-        # Create a wrapper script for screen with timestamps
-        echo "Note: Screen doesn't support live timestamps. Check log file for timestamps."
-    fi
-    screen -L -Logfile "$LOG_FILE" "$DEVICE" "$BAUD_RATE"
 else
     echo -e "${YELLOW}To exit: Ctrl+A, Ctrl+X${NC}"
-    echo
-    echo "Connecting..."
-    sleep 1
-    
-    if [ "$HAS_TS" = true ]; then
-        # Use picocom with millisecond timestamps
-        picocom -b "$BAUD_RATE" --imap lfcrlf --echo "$DEVICE" | ts '[%H:%M:%S.%.S]' | tee "$LOG_FILE"
-    else
-        # Use picocom without timestamps but still log
-        picocom -b "$BAUD_RATE" --imap lfcrlf --echo "$DEVICE" | tee "$LOG_FILE"
-    fi
 fi
+echo
+echo "Connecting..."
+sleep 1
+
+# Auto-reconnect loop - stays open through device reboots
+RECONNECT_COUNT=0
+while true; do
+    # Show reconnect count if not first connection
+    if [ $RECONNECT_COUNT -gt 0 ]; then
+        echo
+        echo -e "${CYAN}🔄 Reconnecting (attempt $RECONNECT_COUNT)...${NC}"
+    fi
+
+    # Check if device exists before connecting
+    if [ ! -e "$DEVICE" ]; then
+        echo -e "${YELLOW}⏳ Waiting for device to appear...${NC}"
+        for i in {1..10}; do
+            if [ -e "$DEVICE" ]; then
+                echo -e "${GREEN}✓ Device reappeared!${NC}"
+                sleep 0.5  # Let USB settle
+                break
+            fi
+            sleep 1
+        done
+
+        # If device still doesn't exist, exit
+        if [ ! -e "$DEVICE" ]; then
+            echo -e "${RED}❌ Device did not reappear - exiting${NC}"
+            break
+        fi
+    fi
+
+    # Connect to device
+    if [ "$USE_SCREEN" = true ]; then
+        if [ "$HAS_TS" = true ]; then
+            echo "Note: Screen doesn't support live timestamps. Check log file for timestamps."
+        fi
+        screen -L -Logfile "$LOG_FILE" "$DEVICE" "$BAUD_RATE"
+        EXIT_CODE=$?
+    else
+        if [ "$HAS_TS" = true ]; then
+            picocom -b "$BAUD_RATE" --imap lfcrlf --echo "$DEVICE" | ts '[%H:%M:%S.%.S]' | tee -a "$LOG_FILE"
+            EXIT_CODE=$?
+        else
+            picocom -b "$BAUD_RATE" --imap lfcrlf --echo "$DEVICE" | tee -a "$LOG_FILE"
+            EXIT_CODE=$?
+        fi
+    fi
+
+    # Check exit reason
+    # picocom returns 0 for user exit (Ctrl+A Ctrl+X), non-zero for errors/disconnects
+    # BUT we need to check if device still exists to distinguish user exit from disconnect
+    if [ $EXIT_CODE -eq 0 ] && [ -e "$DEVICE" ]; then
+        # Clean exit by user AND device still exists
+        echo -e "${GREEN}✓ Console session ended by user${NC}"
+        break
+    else
+        # Device disconnected (likely reboot/flash) OR error exit
+        echo -e "${YELLOW}⚠️  Device disconnected (exit code: $EXIT_CODE) - checking for reconnect...${NC}"
+        RECONNECT_COUNT=$((RECONNECT_COUNT + 1))
+        sleep 1
+        # Loop will retry connection
+    fi
+done
 
 echo
-echo -e "${GREEN}✓ Console session ended${NC}"
 echo -e "Log saved to: ${YELLOW}$LOG_FILE${NC}"
