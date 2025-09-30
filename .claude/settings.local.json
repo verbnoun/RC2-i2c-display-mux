@@ -26,7 +26,10 @@
       "Bash(scripts/extract_font_bitmaps.sh:*)",
       "Bash(./rebuild_japanese_fonts.sh:*)",
       "Bash(./extract_font_bitmaps.sh:*)",
-      "Bash(./generate_ssd1306_fonts.sh:*)"
+      "Bash(./generate_ssd1306_fonts.sh:*)",
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" pot_oled_validation.uf2)",
+      "Bash(git commit:*)",
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" build/pot_oled_validation.uf2)"
     ],
     "deny": [],
     "ask": []
