@@ -1,16 +1,35 @@
 # Current Development Status
 *Current state snapshot - latest changes and immediate next steps only*
 
-## Current Focus: Page System Architecture & Screensaver
+## Current Focus: Keyboard Validation
 
-Screensaver fully integrated into declarative page system. Each screen has independent ball animation with proper state restoration.
+Starting keyboard_2d library development for 25-key velostat keyboard with continuous pressure (Z) and pitch bend (X) per key.
 
 ### Next Tasks
-- Add wipe-down transition from splash to pot displays
-- Implement boot splash minimum display time (2s)
-- Further page system refinements
+- Define keyboard hardware specifications (rows, columns, pin assignments)
+- Create keyboard_2d library in libraries/
+- Implement keyboard scanning and pressure sensing
+- Test and validate in keyboard_validation project
 
 ## Recent Work Completed (Today)
+
+### Attach-Part Template Updates (October 1, 2025)
+- **Zero-Delay Boot**: Applied pot_oled_validation learnings to template
+- **USB Timing**: `PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=2000` in CMakeLists.txt
+- **Removed Boot Delay**: Eliminated 1250ms delay + 3s countdown from template
+- **Minimal Help Menu**: Simplified to just project name, git hash, build date, platform
+- **Template Documentation**: Added changelog and update philosophy to README.md
+
+### Keyboard Validation Project Created (October 1, 2025)
+- **New Project**: ValidateC/keyboard_validation/ using updated attach-part template
+- **Purpose**: Validate keyboard_2d library independently before integration
+- **Status**: Foundation built and flashed, ready for keyboard hardware implementation
+
+### Development Tools (October 1, 2025)
+- **git-status-check**: Now skips pico-sdk and build artifacts (_deps)
+- **Multi-Repo Management**: Clean separation of infrastructure vs library vs project repos
+
+## Recent Work Completed (Previous)
 
 ### Screensaver Architecture Refactor (September 30, 2025)
 - **Per-Screen Animation**: 5 independent bouncing balls with randomized directions

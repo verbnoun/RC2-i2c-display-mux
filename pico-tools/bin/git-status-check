@@ -13,7 +13,17 @@ echo "=================================================================="
 check_repo() {
     local repo_path="$1"
     local repo_name=$(basename "$repo_path")
-    
+
+    # Skip pico-sdk (official SDK, not ours to commit)
+    if [ "$repo_name" = "pico-sdk" ]; then
+        return
+    fi
+
+    # Skip build artifacts (picotool-src in build/_deps)
+    if [[ "$repo_path" == */build/_deps/* ]]; then
+        return
+    fi
+
     cd "$repo_path" || return
     
     # Check if there are any changes

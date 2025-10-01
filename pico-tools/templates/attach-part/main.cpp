@@ -28,26 +28,7 @@
 // CONFIGURATION
 //============================================================================
 const uint LED_PIN = PICO_DEFAULT_LED_PIN;
-// Boot delay prevents flash tool interference (Mac compatibility requirement)
-const uint32_t BOOT_DELAY_MS = 1250;
-const uint32_t COUNTDOWN_SECONDS = 3;
-
-//============================================================================
-// SYSTEM INITIALIZATION
-//============================================================================
-void startup_countdown() {
-    LOG(TAG_SYSTEM, "Starting %d second countdown...", COUNTDOWN_SECONDS);
-    
-    for (uint32_t i = COUNTDOWN_SECONDS; i > 0; i--) {
-        LOG(TAG_SYSTEM, "Countdown: %d", i);
-        gpio_put(LED_PIN, true);
-        sleep_ms(250);
-        gpio_put(LED_PIN, false);
-        sleep_ms(750);
-    }
-    
-    LOG(TAG_SYSTEM, "Starting application...");
-}
+// NOTE: No boot delay needed! SDK's PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS handles USB timing
 
 //============================================================================
 // CONSOLE INTERFACE
@@ -57,13 +38,6 @@ void show_help() {
     LOG(TAG_SYSTEM, "Git Hash: %s", GIT_HASH);
     LOG(TAG_SYSTEM, "Build: %s", BUILD_DATE);
     LOG(TAG_SYSTEM, "Platform: Raspberry Pi Pico 2");
-    LOG(TAG_SYSTEM, "--------------------------------------------");
-    LOG(TAG_SYSTEM, "COMMANDS:");
-    LOG(TAG_SYSTEM, "h - Show this help");
-    LOG(TAG_SYSTEM, "r - Restart system");
-    LOG(TAG_SYSTEM, "S - Graceful shutdown (capital S)");
-    LOG(TAG_SYSTEM, "");
-    LOG(TAG_SYSTEM, "Add your custom commands here...");
 }
 
 void process_console_input() {
@@ -110,28 +84,22 @@ void process_console_input() {
 // MAIN FUNCTION
 //============================================================================
 int main() {
-    // Boot delay prevents flash tool interference
-    sleep_ms(BOOT_DELAY_MS);
-    
-    // Initialize console logging
+    // Initialize console logging (SDK handles USB timing via PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS)
     ConsoleLogger::init(LOG_LEVEL_INFO, true, false);
     ConsoleLogger::banner(PROJECT_NAME);
     LOG(TAG_SYSTEM, "Project: %s | Build: %s", PROJECT_NAME, BUILD_DATE);
     LOG(TAG_SYSTEM, "Git Hash: %s", GIT_HASH);
-    
-    // Initialize LED for countdown
+
+    // Initialize LED
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
     gpio_put(LED_PIN, false);
-    
-    // Startup countdown
-    startup_countdown();
-    
+
     // System ready
     LOG(TAG_SYSTEM, "=== System Ready ===");
     LOG(TAG_SYSTEM, "Commands: h=help, r=restart, S=shutdown");
     LOG(TAG_SYSTEM, "Add your initialization code here...");
-    
+
     // Enable watchdog
     watchdog_enable(8000, 1);
     

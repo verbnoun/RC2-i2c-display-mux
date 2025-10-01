@@ -30,9 +30,10 @@ add_executable(PROJECT_NAME
     main.cpp
 )
 
-# Add version definitions
+# Add version definitions and USB timing
 target_compile_definitions(PROJECT_NAME PRIVATE
     GIT_HASH="${GIT_HASH}"
+    PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=2000  # Wait up to 2s for macOS USB enumeration
 )
 
 # Configure stdio

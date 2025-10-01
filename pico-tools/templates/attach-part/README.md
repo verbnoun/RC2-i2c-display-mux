@@ -133,6 +133,25 @@ This template follows Attach Part development standards:
 - Hardware-agnostic foundation with library extensions
 - Safe development practices with watchdog and graceful shutdown
 
+## Template Updates & Notes
+
+**Location**: `SoftwareC/pico-tools/templates/attach-part/README.md` (this file)
+
+### Template Changelog
+- **Zero-Delay Boot** (Sept 30, 2025): Removed boot delay + countdown, SDK handles USB timing via `PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=2000`
+- **Professional Foundation** (Sept 29, 2025): Initial template with console_logger, version tracking, command interface
+
+### When to Update Template
+- After validating improvements in ValidateC projects (pot_oled_validation, keyboard_validation, etc.)
+- When discovering better practices for initialization, timing, or architecture
+- When adding universally useful console commands or patterns
+
+### Template Philosophy
+- **Minimal but Professional**: Console logging, version tracking, command interface
+- **Hardware Agnostic**: No assumptions about external hardware
+- **Fast Boot**: SDK handles USB timing, no unnecessary delays
+- **Interactive Development**: Console commands for testing/debugging
+
 ## Next Steps
 
 After creating your project:
