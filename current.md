@@ -1,17 +1,24 @@
 # Current Development Status
 *Current state snapshot - latest changes and immediate next steps only*
 
-## Current Focus: Boot Architecture & Display Management
+## Current Focus: Page System Architecture & Screensaver
 
-Zero-delay boot system with early OLED feedback and auto-reconnecting console. Display artifact fixes complete.
+Screensaver fully integrated into declarative page system. Each screen has independent ball animation with proper state restoration.
 
 ### Next Tasks
-- Fix BARTLEBY splash to use DisplayManager OLED layout
 - Add wipe-down transition from splash to pot displays
 - Implement boot splash minimum display time (2s)
-- Page system refinements
+- Further page system refinements
 
 ## Recent Work Completed (Today)
+
+### Screensaver Architecture Refactor (September 30, 2025)
+- **Per-Screen Animation**: 5 independent bouncing balls with randomized directions
+- **Page System Integration**: Screensaver now behaves as normal page (no special exit logic)
+- **State Preservation**: Original page timing restored on exit (fixes auto-return)
+- **Event Consumption**: Triggering event consumed on exit (prevents partial restore)
+- **Status Boot Display**: Status screen shows "STATUS" instead of blank on boot
+- **Default Threshold**: Changed from 45 to 50 for better responsiveness
 
 ### Zero-Delay Boot Architecture (September 30, 2025)
 - **Boot Optimization**: Removed 1250ms delay + 3s countdown = 4.25s faster boot
