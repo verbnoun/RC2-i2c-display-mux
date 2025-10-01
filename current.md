@@ -9,19 +9,30 @@ Starting keyboard_2d library development for 25-key velostat keyboard with conti
 - Define keyboard hardware specifications (rows, columns, pin assignments)
 - Create keyboard_2d library in libraries/
 - Implement keyboard scanning and pressure sensing
-- Test and validate in keyboard_validation project
+- Test and validate in kb_validation project
 
 ## Recent Work Completed (Today)
+
+### System Initialization Architecture Fix (October 1, 2025)
+- **Root Cause**: ConsoleLogger library was calling `stdio_init_all()` (system-level initialization)
+- **Architecture Fix**: Removed `stdio_init_all()` from library, added explicit call in applications
+- **Separation of Concerns**: System init (application) vs configuration (library)
+- **Pattern**: Application calls `stdio_init_all()` before `ConsoleLogger::init()`
+- **Template Updated**: attach-part template now includes explicit `stdio_init_all()` call
+- **macOS USB Timing**: Occasional hang on rapid reflash (macOS USB enumeration timing), resolved by graceful restart
+- **Libraries Updated**: console_logger
+- **Projects Updated**: pot_oled_validation, kb_validation (template)
 
 ### Attach-Part Template Updates (October 1, 2025)
 - **Zero-Delay Boot**: Applied pot_oled_validation learnings to template
 - **USB Timing**: `PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=2000` in CMakeLists.txt
+- **Explicit System Init**: Template now calls `stdio_init_all()` before ConsoleLogger
 - **Removed Boot Delay**: Eliminated 1250ms delay + 3s countdown from template
 - **Minimal Help Menu**: Simplified to just project name, git hash, build date, platform
 - **Template Documentation**: Added changelog and update philosophy to README.md
 
-### Keyboard Validation Project Created (October 1, 2025)
-- **New Project**: ValidateC/keyboard_validation/ using updated attach-part template
+### KB Validation Project Created (October 1, 2025)
+- **New Project**: ValidateC/kb_validation/ using updated attach-part template
 - **Purpose**: Validate keyboard_2d library independently before integration
 - **Status**: Foundation built and flashed, ready for keyboard hardware implementation
 

@@ -63,7 +63,11 @@ echo "Platform: $PICO_PLATFORM"
 cp -r "$TEMPLATE_DIR" "$PROJECT_NAME"
 
 # Replace placeholders in files
-find "$PROJECT_NAME" -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "CMakeLists.txt" -o -name "*.md" \) -exec sed -i.bak "s/PROJECT_NAME/$PROJECT_NAME/g" {} \;
+# Replace __PROJECT_NAME__ in source files (becomes the string value in #define PROJECT_NAME)
+find "$PROJECT_NAME" -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" \) -exec sed -i.bak "s/__PROJECT_NAME__/$PROJECT_NAME/g" {} \;
+# Replace PROJECT_NAME in CMakeLists.txt and README (build system files)
+find "$PROJECT_NAME" -type f \( -name "CMakeLists.txt" -o -name "*.md" \) -exec sed -i.bak "s/PROJECT_NAME/$PROJECT_NAME/g" {} \;
+# Replace board placeholder everywhere
 find "$PROJECT_NAME" -type f \( -name "*.cpp" -o -name "*.c" -o -name "*.h" -o -name "CMakeLists.txt" -o -name "*.md" \) -exec sed -i.bak "s/PICO_BOARD_PLACEHOLDER/$PICO_BOARD/g" {} \;
 
 # Remove backup files

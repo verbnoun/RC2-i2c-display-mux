@@ -10,7 +10,7 @@
 #ifndef BUILD_DATE
     #define BUILD_DATE __DATE__ " " __TIME__
 #endif
-#define PROJECT_NAME "PROJECT_NAME"
+#define PROJECT_NAME "__PROJECT_NAME__"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,7 +84,16 @@ void process_console_input() {
 // MAIN FUNCTION
 //============================================================================
 int main() {
-    // Initialize console logging (SDK handles USB timing via PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS)
+    // Initialize system stdio (USB enumeration happens here)
+    // SDK waits for connection via PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=2000
+    // NOTE: Application must call stdio_init_all() before ConsoleLogger::init()
+    //       This ensures proper separation: system init (app) vs configuration (library)
+    stdio_init_all();
+
+    // Initialize console logging
+    // NOTE: On macOS, rapid reflashing may occasionally hang during USB re-enumeration.
+    //       This is a macOS USB timing issue. Use pico-flash's graceful restart ('S' command)
+    //       to cleanly disconnect before reflashing if needed.
     ConsoleLogger::init(LOG_LEVEL_INFO, true, false);
     ConsoleLogger::banner(PROJECT_NAME);
     LOG(TAG_SYSTEM, "Project: %s | Build: %s", PROJECT_NAME, BUILD_DATE);
