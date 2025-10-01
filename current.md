@@ -1,17 +1,38 @@
 # Current Development Status
 *Current state snapshot - latest changes and immediate next steps only*
 
-## Current Focus: Keyboard Validation
+## Current Focus: Bartleby V3 Keyboard Scanner
 
-Starting keyboard_2d library development for 25-key velostat keyboard with continuous pressure (Z) and pitch bend (X) per key.
+Completed keyboard_2d library for 25-key velostat keyboard with 2-layer CD74HC4067 multiplexer topology.
+
+### Status: ✅ FULLY FUNCTIONAL
+- **Library**: keyboard_2d - 2-layer mux scanning (L1A, L1B, L2A, L2B shared architecture)
+- **Validation**: kb_validation - Continuous scan mode with adjustable threshold
+- **Hardware**: All 25 keys (50 switches) mapping correctly
+- **Performance**: ~1000 scans per second with real-time key press detection
 
 ### Next Tasks
-- Define keyboard hardware specifications (rows, columns, pin assignments)
-- Create keyboard_2d library in libraries/
-- Implement keyboard scanning and pressure sensing
-- Test and validate in kb_validation project
+- Rename library and project to bart_v3_kb_scanner / bart_v3_kb_validation
+- Integrate into BartlebyC controller application
 
 ## Recent Work Completed (Today)
+
+### Keyboard Scanner Complete (October 1, 2025)
+- **keyboard_2d Library**: Complete 2-layer multiplexer scanning implementation
+  - 4 muxes: L1A (GP6,7,5,4→GP27/ADC1), L1B (GP2,3,1,0→GP26/ADC0), L2A+L2B (shared GP19,18,17,16)
+  - Batched scan pattern: Groups 2,3,1,4 to minimize L2 channel switching
+  - Capacitance discharge fix: Dummy ADC read after L2 channel change
+  - All 25 keys (50 switches) mapping correctly
+- **kb_validation Project**: Full validation tool with interactive testing
+  - Single scan mode ('t' command) - scan once, show pressed keys
+  - Continuous scan mode ('c' toggle) - real-time key monitoring
+  - Adjustable threshold ('+'/'-' commands) - tune sensitivity in 100 ADC increments
+  - Performance heartbeat: ~1000 scans/second with timing info
+- **Hardware Fixes**:
+  - Corrected GPIO pin assignments (L1A/L1B ADC pins were swapped)
+  - Fixed L2 shared select pin architecture
+  - Resistance calculation formula corrected for 100kΩ pull-up to 3V3
+- **Status**: Fully functional, ready for BartlebyC integration
 
 ### System Initialization Architecture Fix (October 1, 2025)
 - **Root Cause**: ConsoleLogger library was calling `stdio_init_all()` (system-level initialization)

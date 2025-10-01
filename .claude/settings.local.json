@@ -29,7 +29,17 @@
       "Bash(./generate_ssd1306_fonts.sh:*)",
       "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" pot_oled_validation.uf2)",
       "Bash(git commit:*)",
-      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" build/pot_oled_validation.uf2)"
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" build/pot_oled_validation.uf2)",
+      "Bash(gh repo create:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git push:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" \"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/ValidateC/pot_oled_validation/build/pot_oled_validation.uf2\")",
+      "Bash(cat:*)",
+      "Bash(pico-init:*)",
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" build/kb_validation.uf2)",
+      "Bash(\"/Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/pico-tools/bin/pico-flash\" /Users/jackson/Documents/Projects/Attach Part/Product/SoftwareC/ValidateC/kb_validation/build/kb_validation.uf2)"
     ],
     "deny": [],
     "ask": []
